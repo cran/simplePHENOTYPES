@@ -4,10 +4,18 @@
 \alias{genotypes}
 \title{Generate a numeric (dosage) HapMap file}
 \usage{
-genotypes(geno_obj = NULL, geno_file = NULL, geno_path = NULL,
-  input_format = "hapmap", nrows = Inf, na_string = "NA",
-  prefix = NULL, maf_cutoff = NULL, SNP_effect = "Add",
-  SNP_impute = "Middle", major_allele_zero = FALSE, verbose = TRUE)
+genotypes(
+  geno_obj = NULL,
+  geno_file = NULL,
+  geno_path = NULL,
+  nrows = Inf,
+  na_string = "NA",
+  prefix = NULL,
+  maf_cutoff = NULL,
+  SNP_effect = "Add",
+  SNP_impute = "Middle",
+  verbose = TRUE
+)
 }
 \arguments{
 \item{geno_obj}{= NULL,}
@@ -15,8 +23,6 @@ genotypes(geno_obj = NULL, geno_file = NULL, geno_path = NULL,
 \item{geno_file}{= NULL,}
 
 \item{geno_path}{= NULL,}
-
-\item{input_format}{= "hapmap",}
 
 \item{nrows}{= Inf,}
 
@@ -30,8 +36,6 @@ genotypes(geno_obj = NULL, geno_file = NULL, geno_path = NULL,
 
 \item{SNP_impute}{= 'Middle',}
 
-\item{major_allele_zero}{= FALSE,}
-
 \item{verbose}{= verbose}
 }
 \value{
@@ -42,7 +46,7 @@ Generate a numeric (dosage) HapMap file
 }
 \author{
 Samuel Fernandes and Alexander Lipka
-Last update: Nov 05, 2019
+Last update: Apr 20, 2020
 
 ------------------------------------------------------------------------------
 }

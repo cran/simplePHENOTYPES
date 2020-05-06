@@ -1,15 +1,16 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#"
+  comment = "#",
+  root.dir = getwd()
 )
 
-## ----load data, eval = FALSE---------------------------------------------
+## ----load data, eval = FALSE--------------------------------------------------
 #  library(simplePHENOTYPES)
 #  data("SNP55K_maize282_maf04")
 #  SNP55K_maize282_maf04[1:8, 1:10]
 
-## ----ST, eval = FALSE----------------------------------------------------
+## ----ST, eval = FALSE---------------------------------------------------------
 #  create_phenotypes(
 #    geno_obj = SNP55K_maize282_maf04,
 #    add_QTN_num = 3,
@@ -20,7 +21,7 @@ knitr::opts_chunk$set(
 #    model = "A",
 #    home_dir = tempdir())
 
-## ----MT P, results = "hide", eval = FALSE--------------------------------
+## ----MT P, results = "hide", eval = FALSE-------------------------------------
 #   test1 <-  create_phenotypes(
 #      geno_obj = SNP55K_maize282_maf04,
 #      add_QTN_num = 3,
@@ -42,7 +43,7 @@ knitr::opts_chunk$set(
 #    home_dir = tempdir()
 #    )
 
-## ----MT P2, results = "hide", eval = FALSE-------------------------------
+## ----MT P2, results = "hide", eval = FALSE------------------------------------
 #   custom_geometric_a <- list(trait_1 = c(0.04, 0.0016),
 #                           trait_2 = c(0.2, 0.04),
 #                           trait_3 = c(0.1, 0.01))
@@ -73,7 +74,7 @@ knitr::opts_chunk$set(
 #  
 #   all.equal(test1, test2)
 
-## ----MT PP, results = "hide", eval = FALSE-------------------------------
+## ----MT PP, results = "hide", eval = FALSE------------------------------------
 #  cor_matrix <- matrix(c(   1, 0.3, -0.9,
 #                          0.3,   1,  -0.5,
 #                         -0.9, -0.5,    1 ), 3)
@@ -97,11 +98,11 @@ knitr::opts_chunk$set(
 #    architecture = "partially",
 #    out_geno = "numeric",
 #    to_r = TRUE,
-#    model = "AED",
+#    model = "AE",
 #    home_dir = tempdir()
 #  )
 
-## ----MT LD, results = "hide", eval = FALSE-------------------------------
+## ----MT LD, results = "hide", eval = FALSE------------------------------------
 #  create_phenotypes(
 #    geno_obj = SNP55K_maize282_maf04,
 #    add_QTN_num = 3,
@@ -113,32 +114,49 @@ knitr::opts_chunk$set(
 #    architecture = "LD",
 #    output_dir = "Results_LD",
 #    out_geno = "plink",
+#    remove_QTN = TRUE,
 #    ld=0.8,
 #    model = "A",
+#    type_of_ld = "indirect",
 #    home_dir = tempdir()
 #  )
 
-## ----MT PP E, results = "hide", eval = FALSE-----------------------------
+## ----MT PP E, results = "hide", eval = FALSE----------------------------------
+#  residual <- matrix(c(1, 0.1,-0.2,
+#                       0.1, 1,-0.1,-0.2,-0.1, 1), 3)
+#  heritability <- matrix(c(0.2, 0.4, 0.8,
+#                           0.6, 0.7, 0.2), 2)
 #  create_phenotypes(
 #    geno_obj = SNP55K_maize282_maf04,
 #    pleio_a = 3,
 #    pleio_e = 2,
-#    trait_spec_a_QTN_num = c(4,10, 1),
-#    trait_spec_e_QTN_num = c(2,1, 5),
+#    same_add_dom_QTN = TRUE,
+#    degree_of_dom = 1,
+#    trait_spec_a_QTN_num = c(4, 10, 1),
+#    trait_spec_e_QTN_num = c(2, 1, 5),
 #    epi_effect = c(0.01, 0.4, 0.2),
 #    add_effect = c(0.3, 0.2, 0.5),
-#    h2 = c(0.2,0.4, 0.8),
+#    h2 = heritability,
 #    ntraits = 3,
-#    rep = 20,
+#    rep = 5,
 #    vary_QTN = TRUE,
-#    output_dir = "Results_Partially_E",
+#    warning_file_saver = FALSE,
+#    output_dir = "Results_Partially_ADE",
 #    output_format = "gemma",
 #    architecture = "partially",
-#    model = "AE",
-#    home_dir = tempdir()
+#    model = "ADE",
+#    QTN_variance = TRUE,
+#    remove_QTN = TRUE,
+#    home_dir = tempdir(),
+#    constraints = list(
+#      maf_above = 0.3,
+#      maf_below = 0.44,
+#      hets = "include"
+#    ),
+#    cor_res = residual
 #  )
 
-## ----example, results = "hide", eval = FALSE-----------------------------
+## ----example, results = "hide", eval = FALSE----------------------------------
 #  create_phenotypes(
 #    geno_path = "PATH/TO/FILE",
 #    prefix = "WGS_chrm_",

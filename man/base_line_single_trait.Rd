@@ -4,11 +4,21 @@
 \alias{base_line_single_trait}
 \title{Calculate genetic value based on QTN objects.}
 \usage{
-base_line_single_trait(add_obj = NULL, dom_obj = NULL,
-  epi_obj = NULL, add_effect = NULL, dom_effect = NULL,
-  epi_effect = NULL, rep = NULL, rep_by = "experiment",
-  ntraits = 1, add = NULL, dom = NULL, epi = NULL,
-  sim_method = NULL)
+base_line_single_trait(
+  add_obj = NULL,
+  dom_obj = NULL,
+  epi_obj = NULL,
+  add_effect = NULL,
+  dom_effect = NULL,
+  epi_effect = NULL,
+  rep = NULL,
+  rep_by = "experiment",
+  ntraits = 1,
+  add = NULL,
+  dom = NULL,
+  epi = NULL,
+  sim_method = NULL
+)
 }
 \arguments{
 \item{add_obj}{hhh}
@@ -45,7 +55,7 @@ Calculate genetic value based on QTN objects.
 }
 \author{
 Samuel Fernandes and Alexander Lipka
-Last update: Nov 05, 2019
+Last update: Apr 20, 2020
 
 -----------------------------Base_line_single_trait---------------------------
 --------------------------------------------------------------------------

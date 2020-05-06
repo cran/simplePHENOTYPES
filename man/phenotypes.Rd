@@ -4,9 +4,24 @@
 \alias{phenotypes}
 \title{Generate environmental effects based on a given heritability}
 \usage{
-phenotypes(base_line_trait = NULL, h2 = NULL, rep = NULL,
-  seed = NULL, ntraits = NULL, output_format = NULL, fam = NULL,
-  to_r = NULL, rep_by = NULL, hets = NULL, verbose = TRUE)
+phenotypes(
+  base_line_trait = NULL,
+  h2 = NULL,
+  rep = NULL,
+  seed = NULL,
+  ntraits = NULL,
+  output_format = NULL,
+  fam = NULL,
+  to_r = NULL,
+  rep_by = NULL,
+  hets = NULL,
+  verbose = TRUE,
+  QTN_variance = FALSE,
+  add = NULL,
+  dom = NULL,
+  epi = NULL,
+  cor_res = NULL
+)
 }
 \arguments{
 \item{base_line_trait}{= NULL,}
@@ -30,6 +45,10 @@ phenotypes(base_line_trait = NULL, h2 = NULL, rep = NULL,
 \item{hets}{= 'QTN'}
 
 \item{verbose}{= TRUE}
+
+\item{QTN_variance}{= FALSE}
+
+\item{cor_res}{= NULL}
 }
 \value{
 Phenotypes for ntraits traits
@@ -39,7 +58,7 @@ Generate environmental effects based on a given heritability
 }
 \author{
 Samuel Fernandes and Alexander Lipka
-Last update: Nov 05, 2019
+Last update: Apr 20, 2020
 
 ----------------------------phenotypes---------------------------------------
 }

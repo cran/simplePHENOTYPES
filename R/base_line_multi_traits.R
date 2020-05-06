@@ -18,7 +18,7 @@
 #' @param verbose = TRUE
 #' @return A matrix of Genetic values for multiple traits
 #' @author Samuel Fernandes
-#' Last update: Nov 05, 2019
+#' Last update: Apr 20, 2020
 #'
 #'-------------------------------base_line_multi_traits-------------------------
 base_line_multi_traits <-
@@ -44,11 +44,14 @@ base_line_multi_traits <-
     VD <- NULL
     VE <- NULL
     sample_cor <- NULL
-    if (rep_by != "QTN"){
+    QTN_var <- list(var_add = list(),
+                    var_dom = list(),
+                    var_epi = list())
+    if (rep_by != "QTN") {
       rep <- 1
-      }
+    }
     results <- vector("list", rep)
-    for (z in 1:rep){
+    for (z in 1:rep) {
       if (!is.null(cor) & architecture != "LD") {
         if (architecture == "pleiotropic") {
           if (add) {
@@ -84,29 +87,44 @@ base_line_multi_traits <-
               )
             genetic_value[, j] <-
               trait_temp$base_line[[1]]
-            if (add) VA[j] <- trait_temp$VA
-            if (dom) VD[j] <- trait_temp$VD
-            if (epi) VE[j] <- trait_temp$VE
+            if (add) {
+              VA[j] <- trait_temp$VA
+              QTN_var$var_add[[j]] <- trait_temp$var_add
+            }
+            if (dom) {
+              VD[j] <- trait_temp$VD
+              QTN_var$var_dom[[j]] <- trait_temp$var_dom
+            }
+            if (epi) {
+              VE[j] <- trait_temp$VE
+              QTN_var$var_epi[[j]] <- trait_temp$var_epi
+            }
           }
           sdg <- apply(genetic_value, 2, sd)
           meang <- apply(genetic_value, 2, mean)
           genetic_s <- apply(genetic_value, 2, scale)
           cg <- cov(genetic_s)
           if (!lqmm::is.positive.definite(cg)) {
-            if (verbose) cat("Using lqmm::make.positive.definite() to make genetic correlation positive definite!\n")
+            if (verbose)
+              cat(
+                "Using lqmm::make.positive.definite() to make genetic correlation positive definite!\n"
+              )
             cg <- lqmm::make.positive.definite(cg)
           }
           L <- t(chol(cg))
           G_white <- t(solve(L) %*% t(genetic_s))
           if (!lqmm::is.positive.definite(cor)) {
-            if (verbose) cat("cor matrix not positive definite! Applying lqmm::make.positive.definite() \n")
+            if (verbose)
+              cat(
+                "cor matrix not positive definite! Applying lqmm::make.positive.definite() \n"
+              )
             cor <- lqmm::make.positive.definite(cor)
           }
           L <- t(chol(cor))
           traits <- t(L %*% t(G_white))
           rownames(traits) <- rownames
           cor_original_trait <- c()
-          for (i in 1:ncol(traits)) {
+          for (i in seq_len(ncol(traits))) {
             traits[, i] <-
               traits[, i] * sdg[i] + meang[i]
             cor_original_trait[i] <-
@@ -118,7 +136,8 @@ base_line_multi_traits <-
             VA = VA,
             VE = VE,
             VD = VD,
-            sample_cor = sample_cor
+            sample_cor = sample_cor,
+            QTN_var = QTN_var
           )
         } else {
           if (add) {
@@ -154,24 +173,37 @@ base_line_multi_traits <-
               )
             genetic_value[, j] <-
               trait_temp$base_line[[1]]
-            if (add) VA[j] <- trait_temp$VA
-            if (dom) VD[j] <- trait_temp$VD
-            if (epi) VE[j] <- trait_temp$VE
+            if (add) {
+              VA[j] <- trait_temp$VA
+              QTN_var$var_add[[j]] <- trait_temp$var_add
+            }
+            if (dom) {
+              VD[j] <- trait_temp$VD
+              QTN_var$var_dom[[j]] <- trait_temp$var_dom
+            }
+            if (epi) {
+              VE[j] <- trait_temp$VE
+              QTN_var$var_epi[[j]] <- trait_temp$var_epi
+            }
           }
           sdg <- apply(genetic_value, 2, sd)
           meang <- apply(genetic_value, 2, mean)
           genetic_s <- apply(genetic_value, 2, scale)
           cg <- cov(genetic_s)
           if (!lqmm::is.positive.definite(cg)) {
-            if (verbose) cat("Using lqmm::make.positive.definite() to make genetic correlation positive definite!\n")
+            if (verbose)
+              cat(
+                "Using lqmm::make.positive.definite() to make genetic correlation positive definite!\n"
+              )
             cg <- lqmm::make.positive.definite(cg)
           }
           L <- t(chol(cg))
           G_white <- t(solve(L) %*% t(genetic_s))
           if (!lqmm::is.positive.definite(cor)) {
-            if (verbose) cat(
-              "cor matrix not positive definite! Applying lqmm::make.positive.definite \n"
-            )
+            if (verbose)
+              cat(
+                "cor matrix not positive definite! Applying lqmm::make.positive.definite \n"
+              )
             cor <-
               lqmm::make.positive.definite(cor)
           }
@@ -192,7 +224,8 @@ base_line_multi_traits <-
               VD = VD,
               VE = VE,
               sample_cor = sample_cor,
-              cor_original_trait = cor_original_trait
+              cor_original_trait = cor_original_trait,
+              QTN_var = QTN_var
             )
         }
       } else {
@@ -226,9 +259,18 @@ base_line_multi_traits <-
                 sim_method = sim_method
               )
             traits[, i] <- trait_temp$base_line[, 1]
-            if (add) VA[i] <- trait_temp$VA
-            if (dom) VD[i] <- trait_temp$VD
-            if (epi) VE[i] <- trait_temp$VE
+            if (add) {
+              VA[i] <- trait_temp$VA
+              QTN_var$var_add[[i]] <- trait_temp$var_add
+            }
+            if (dom) {
+              VD[i] <- trait_temp$VD
+              QTN_var$var_dom[[i]] <- trait_temp$var_dom
+            }
+            if (epi) {
+              VE[i] <- trait_temp$VE
+              QTN_var$var_epi[[i]] <- trait_temp$var_epi
+            }
           }
           rownames(traits) <- rownames
         } else {
@@ -264,21 +306,31 @@ base_line_multi_traits <-
                 sim_method = sim_method
               )
             traits[, i] <- trait_temp$base_line[, 1]
-            if (add) VA[i] <- trait_temp$VA
-            if (dom) VD[i] <- trait_temp$VD
-            if (epi) VE[i] <- trait_temp$VE
+            if (add) {
+              VA[i] <- trait_temp$VA
+              QTN_var$var_add[[i]] <- trait_temp$var_add
+            }
+            if (dom) {
+              VD[i] <- trait_temp$VD
+              QTN_var$var_dom[[i]] <- trait_temp$var_dom
+            }
+            if (epi) {
+              VE[i] <- trait_temp$VE
+              QTN_var$var_epi[[i]] <- trait_temp$var_epi
+            }
           }
           rownames(traits) <- rownames
         }
         if (!all(traits == 0)) {
           sample_cor <- cor(traits)
-          }
+        }
         results[[z]] <- list(
           base_line = traits,
           VA = VA,
           VD = VD,
           VE = VE,
-          sample_cor = sample_cor
+          sample_cor = sample_cor,
+          QTN_var = QTN_var
         )
       }
     }

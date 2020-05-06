@@ -4,11 +4,24 @@
 \alias{base_line_multi_traits}
 \title{Calculate genetic value based on QTN objects.}
 \usage{
-base_line_multi_traits(add_obj = NULL, dom_obj = NULL,
-  epi_obj = NULL, add_effect = NULL, dom_effect = NULL,
-  epi_effect = NULL, ntraits = NULL, cor = NULL,
-  architecture = NULL, rep = NULL, rep_by = NULL, add = NULL,
-  dom = NULL, epi = NULL, sim_method = NULL, verbose = TRUE)
+base_line_multi_traits(
+  add_obj = NULL,
+  dom_obj = NULL,
+  epi_obj = NULL,
+  add_effect = NULL,
+  dom_effect = NULL,
+  epi_effect = NULL,
+  ntraits = NULL,
+  cor = NULL,
+  architecture = NULL,
+  rep = NULL,
+  rep_by = NULL,
+  add = NULL,
+  dom = NULL,
+  epi = NULL,
+  sim_method = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{add_obj}{hhh}
@@ -51,7 +64,7 @@ Calculate genetic value based on QTN objects.
 }
 \author{
 Samuel Fernandes
-Last update: Nov 05, 2019
+Last update: Apr 20, 2020
 
 -------------------------------base_line_multi_traits-------------------------
 --------------------------------------------------------------------------
