@@ -7,7 +7,9 @@
 #' @param same_add_dom_QTN = NULL,
 #' @param dom = NULL,
 #' @param add = NULL,
-#' @param ld = NULL,
+#' @param ld_min = NULL,
+#' @param ld_max = NULL,
+#' @param ld_method Four methods can be used to calculate linkage disequilibrium values: "composite" for LD composite measure, "r" for R coefficient (by EM algorithm assuming HWE, it could be negative), "dprime" for D', and "corr" for correlation coefficient.
 #' @param gdsfile NULL
 #' @param constraints = list(maf_above = NULL, maf_below = NULL)
 #' @param rep = 1,
@@ -25,7 +27,9 @@ qtn_linkage <-
            seed = NULL,
            add_QTN_num = NULL,
            dom_QTN_num = NULL,
-           ld = NULL,
+           ld_max = NULL,
+           ld_min = NULL,
+           ld_method = "composite",
            gdsfile = NULL,
            constraints = list(maf_above = NULL, maf_below = NULL),
            rep = NULL,
@@ -108,15 +112,16 @@ qtn_linkage <-
             ld_between_QTNs_temp <- c()
             actual_ld_sup <- c()
             actual_ld_inf <- c()
-            again <- TRUE
-            times <- 1
-            dif <- c()
-            while (again) {
-              x <- 1
-              for (j in vector_of_add_QTN) {
-                ldsup <- 1
+            x <- 1
+            for (j in vector_of_add_QTN) {
+              times <- 1
+              dif <- c()
+              ldsup <- 1
+              ldinf <- 1
+              while (times <= 100 & (ldsup < ld_min | ldinf < ld_min | ldsup > ld_max | ldinf > ld_max)) {
                 i <- j + 1
-                while (ldsup > ld) {
+                i2 <- j - 1
+                while (ldsup > ld_max) {
                   if (i > n) {
                     if (verbose)
                       warning(
@@ -139,7 +144,7 @@ qtn_linkage <-
                       count = c(-1, 1)
                     )
                   ldsup <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
                   if (is.nan(ldsup)) {
                     SNPRelate::snpgdsClose(genofile)
                     stop("Monomorphic SNPs are not accepted", call. = F)
@@ -148,13 +153,11 @@ qtn_linkage <-
                 }
                 actual_ld_sup[x] <- ldsup
                 sup_temp[x] <- i - 1
-                ldinf <- 1
-                i2 <- j - 1
-                while (ldinf > ld) {
+                while (ldinf > ld_max) {
                   if (i2 < 1) {
                     if (verbose)
                       warning(
-                        "There are no SNPs uptream. Selecting a different seed number",
+                        "There are no SNPs upstream. Selecting a different seed number",
                         call. = F,
                         immediate. = T
                       )
@@ -167,7 +170,7 @@ qtn_linkage <-
                       count = c(-1, 1)
                     )
                   ldinf <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = "composite"))
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
                   if (is.nan(ldinf)) {
                     SNPRelate::snpgdsClose(genofile)
                     stop("Monomorphic SNPs are not accepted", call. = F)
@@ -189,24 +192,45 @@ qtn_linkage <-
                     count = c(-1, 1)
                   )
                 ld_between_QTNs_temp[x] <-
-                  SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = "composite")
-                x <- x + 1
-              }
-              if ((!any(genotypes[sup_temp, - (1:5)] == 0) |
-                   !any(genotypes[inf_temp, - (1:5)] == 0)) &
-                  times <= 10 & dom) {
-                if (!is.null(seed)) {
-                  seed_num[z] <- (seed * s) + z
-                  set.seed(seed_num[z])
+                  SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = ld_method)[1]
+                if (((!any(genotypes[sup_temp, - (1:5)] == 0) |
+                      !any(genotypes[inf_temp, - (1:5)] == 0)) & dom) |
+                    ldsup > ld_max | ldinf > ld_max | ldsup < ld_min | ldinf < ld_min) {
+                  if (!is.null(seed)) {
+                    seed_num[z] <- (seed * s) + z
+                    set.seed(seed_num[z])
+                  }
+                  dif <- c(dif, vector_of_add_QTN, j)
+                  j <-
+                    sample(setdiff(index, dif), 1, replace = FALSE)
+                  ldsup <- 1
+                  ldinf <- 1
                 }
-                dif <- c(dif, vector_of_add_QTN)
-                vector_of_add_QTN <-
-                  sample(setdiff(index, dif), add_QTN_num, replace = FALSE)
-                again <- TRUE
-              } else {
-                again <- FALSE
+                times <- times + 1
               }
-              times <- times + 1
+              vector_of_add_QTN[x] <- j
+              x <- x + 1
+              if (((!any(genotypes[sup_temp, - (1:5)] == 0) |
+                    !any(genotypes[inf_temp, - (1:5)] == 0)) &
+                   dom)) {
+                warning(
+                  "No heterozygote found to simulate dominance.",
+                  call. = F,
+                  immediate. = T
+                )
+              }
+              if (ldsup < ld_min | ldinf < ld_min) {
+                stop(
+                  "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                  call. = F
+                )
+              }
+              if (ldsup > ld_max | ldinf > ld_max) {
+                stop(
+                  "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                  call. = F
+                )
+              }
             }
             if (i > n | i2 < 1) {
               border <- TRUE
@@ -220,21 +244,24 @@ qtn_linkage <-
           inf[[z]] <- inf_temp
           QTN_causing_ld[[z]] <-
             data.frame(
-              snp_type = "cause_of_LD",
+              type = "cause_of_LD",
+              trait = "none",
               genotypes[vector_of_add_QTN, ],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
           add_gen_info_sup[[z]] <-
             data.frame(
-              snp_type = "QTN_upstream",
+              type = "QTN_upstream",
+              trait = "trait_1",
               genotypes[sup[[z]], ],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
           add_gen_info_inf[[z]] <-
             data.frame(
-              snp_type = "QTN_downstream",
+              type = "QTN_downstream",
+              trait = "trait_2",
               genotypes[inf[[z]], ],
               check.names = FALSE,
               fix.empty.names = FALSE
@@ -244,12 +271,13 @@ qtn_linkage <-
                                 add_gen_info_inf[[z]])
           LD_summary[[z]] <- data.frame(
             z,
-            QTN_causing_ld[[z]][, 2],
-            ld,
+            QTN_causing_ld[[z]][, "snp"],
+            ld_min,
+            ld_max,
             actual_ld_inf,
             actual_ld_sup,
-            add_gen_info_inf[[z]][, 2],
-            add_gen_info_sup[[z]][, 2],
+            add_gen_info_inf[[z]][, "snp"],
+            add_gen_info_sup[[z]][, "snp"],
             ld_between_QTNs_temp,
             check.names = FALSE,
             fix.empty.names = FALSE
@@ -258,7 +286,8 @@ qtn_linkage <-
             c(
               "rep",
               "SNP_causing_LD",
-              "input_LD (absolute value)",
+              "ld_min (absolute value)",
+              "ld_max (absolute value)",
               "Actual_LD_with_QTN_of_Trait_1",
               "Actual_LD_with_QTN_of_Trait_2",
               "QTN_for_trait_1",
@@ -269,23 +298,23 @@ qtn_linkage <-
         LD_summary <- do.call(rbind, LD_summary)
         data.table::fwrite(
           LD_summary,
-          "LD_summary.txt",
+          "LD_Summary.txt",
           row.names = FALSE,
           sep = "\t",
           quote = FALSE,
           na = NA
         )
         results <- do.call(rbind, results)
-        ns <- nrow(genotypes) - 5
-        maf <- round(apply(results[, - c(1:6)], 1, function(x) {
+        ns <- ncol(genotypes) - 5
+        maf <- round(apply(results[, - c(1:7)], 1, function(x) {
           sumx <- ((sum(x) + ns) / ns * 0.5)
           min(sumx, (1 - sumx))
         }), 4)
-        names(maf) <- results[, 2]
+        names(maf) <- results[, "snp"]
         results <- data.frame(
-          results[, 1:6],
+          results[, 1:7],
           maf = maf,
-          results[, - c(1:6)],
+          results[, - c(1:7)],
           check.names = FALSE,
           fix.empty.names = FALSE
         )
@@ -297,21 +326,23 @@ qtn_linkage <-
             fix.empty.names = FALSE
           )
         if (!export_gt) {
-          results <- results[, 1:8]
+          results <- results[, 1:9]
         }
         if (add_QTN) {
-          write.table(
-            seed_num,
-            paste0("seed_num_for_", add_QTN_num,
-                   "_Add_and_Dom_QTN.txt"),
-            row.names = FALSE,
-            col.names = FALSE,
-            sep = "\t",
-            quote = FALSE
-          )
+          if (verbose){
+            write.table(
+              seed_num,
+              paste0("Seed_num_for_", add_QTN_num,
+                     "_Add_and_Dom_QTN.txt"),
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = "\t",
+              quote = FALSE
+            )
+          }
           data.table::fwrite(
             results,
-            "Additive_and_Dominance_selected_QTNs.txt",
+            "Additive_and_Dominance_Selected_QTNs.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
@@ -323,7 +354,7 @@ qtn_linkage <-
             paste0("Chr_", x$chr, "_", x$pos)
           rownames(y) <-
             paste0("Chr_", y$chr, "_", y$pos)
-          b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+          b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
           return(b)
         },
         x = add_gen_info_sup,
@@ -350,90 +381,119 @@ qtn_linkage <-
               }
               vector_of_add_QTN <-
                 sample(index, add_QTN_num, replace = FALSE)
-              x <- 1
               sup_temp <- c()
               inf_temp <- c()
               ld_between_QTNs_temp <- c()
               actual_ld_sup <- c()
               actual_ld_inf <- c()
+              x <- 1
               for (j in vector_of_add_QTN) {
+                times <- 1
+                dif <- c()
                 ldsup <- 1
-                i <- j + 1
-                while (ldsup > ld) {
-                  if (i > n) {
-                    if (verbose)
-                      warning(
-                        "There are no SNPs downstream. Selecting a different seed number",
-                        call. = F,
-                        immediate. = T
-                      )
-                    break
-                  }
-                  snp1 <-
-                    gdsfmt::read.gdsn(
-                      gdsfmt::index.gdsn(genofile, "genotype"),
-                      start = c(1, j),
-                      count = c(-1, 1)
-                    )
-                  snp2 <-
-                    gdsfmt::read.gdsn(
-                      gdsfmt::index.gdsn(genofile, "genotype"),
-                      start = c(1, i),
-                      count = c(-1, 1)
-                    )
-                  ldsup <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
-                  if (is.nan(ldsup)) {
-                    SNPRelate::snpgdsClose(genofile)
-                    stop("Monomorphic SNPs are not accepted", call. = F)
-                  }
-                  i <- i + 1
-                }
-                actual_ld_sup[x] <- ldsup
-                sup_temp[x] <- i - 1
                 ldinf <- 1
-                i2 <- j - 1
-                while (ldinf > ld) {
-                  if (i2 < 1) {
-                    if (verbose)
-                      warning(
-                        "There are no SNPs upstream. Selecting a different seed number",
-                        call. = F,
-                        immediate. = T
+                while (times <= 100 & (ldsup < ld_min | ldinf < ld_min | ldsup > ld_max | ldinf > ld_max)) {
+                  i <- j + 1
+                  i2 <- j - 1
+                  while (ldsup > ld_max) {
+                    if (i > n) {
+                      if (verbose)
+                        warning(
+                          "There are no SNPs downstream. Selecting a different seed number",
+                          call. = F,
+                          immediate. = T
+                        )
+                      break
+                    }
+                    snp1 <-
+                      gdsfmt::read.gdsn(
+                        gdsfmt::index.gdsn(genofile, "genotype"),
+                        start = c(1, j),
+                        count = c(-1, 1)
                       )
-                    break
+                    snp2 <-
+                      gdsfmt::read.gdsn(
+                        gdsfmt::index.gdsn(genofile, "genotype"),
+                        start = c(1, i),
+                        count = c(-1, 1)
+                      )
+                    ldsup <-
+                      abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
+                    if (is.nan(ldsup)) {
+                      SNPRelate::snpgdsClose(genofile)
+                      stop("Monomorphic SNPs are not accepted", call. = F)
+                    }
+                    i <- i + 1
                   }
-                  snp3 <-
+                  actual_ld_sup[x] <- ldsup
+                  sup_temp[x] <- i - 1
+                  while (ldinf > ld_max) {
+                    if (i2 < 1) {
+                      if (verbose)
+                        warning(
+                          "There are no SNPs upstream. Selecting a different seed number",
+                          call. = F,
+                          immediate. = T
+                        )
+                      break
+                    }
+                    snp3 <-
+                      gdsfmt::read.gdsn(
+                        gdsfmt::index.gdsn(genofile, "genotype"),
+                        start = c(1, i2),
+                        count = c(-1, 1)
+                      )
+                    ldinf <-
+                      abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
+                    if (is.nan(ldinf)) {
+                      SNPRelate::snpgdsClose(genofile)
+                      stop("Monomorphic SNPs are not accepted", call. = F)
+                    }
+                    i2 <- i2 - 1
+                  }
+                  actual_ld_inf[x] <- ldinf
+                  inf_temp[x] <- i2 + 1
+                  snp_sup <-
                     gdsfmt::read.gdsn(
                       gdsfmt::index.gdsn(genofile, "genotype"),
-                      start = c(1, i2),
+                      start = c(1, sup_temp[x]),
                       count = c(-1, 1)
                     )
-                  ldinf <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = "composite"))
-                  if (is.nan(ldinf)) {
-                    SNPRelate::snpgdsClose(genofile)
-                    stop("Monomorphic SNPs are not accepted", call. = F)
+                  snp_inf <-
+                    gdsfmt::read.gdsn(
+                      gdsfmt::index.gdsn(genofile, "genotype"),
+                      start = c(1, inf_temp[x]),
+                      count = c(-1, 1)
+                    )
+                  ld_between_QTNs_temp[x] <-
+                    SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = ld_method)[1]
+                  if (ldsup > ld_max | ldinf > ld_max | ldsup < ld_min | ldinf < ld_min) {
+                    if (!is.null(seed)) {
+                      seed_num[z] <- (seed * s) + z
+                      set.seed(seed_num[z])
+                    }
+                    dif <- c(dif, vector_of_add_QTN, j)
+                    j <-
+                      sample(setdiff(index, dif), 1, replace = FALSE)
+                    ldsup <- 1
+                    ldinf <- 1
                   }
-                  i2 <- i2 - 1
+                  times <- times + 1
                 }
-                actual_ld_inf[x] <- ldinf
-                inf_temp[x] <- i2 + 1
-                snp_sup <-
-                  gdsfmt::read.gdsn(
-                    gdsfmt::index.gdsn(genofile, "genotype"),
-                    start = c(1, sup_temp[x]),
-                    count = c(-1, 1)
-                  )
-                snp_inf <-
-                  gdsfmt::read.gdsn(
-                    gdsfmt::index.gdsn(genofile, "genotype"),
-                    start = c(1, inf_temp[x]),
-                    count = c(-1, 1)
-                  )
-                ld_between_QTNs_temp[x] <-
-                  SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = "composite")
+                vector_of_add_QTN[x] <- j
                 x <- x + 1
+                if (ldsup < ld_min | ldinf < ld_min) {
+                  stop(
+                    "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                    call. = F
+                  )
+                }
+                if (ldsup > ld_max | ldinf > ld_max) {
+                  stop(
+                    "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                    call. = F
+                  )
+                }
               }
               if (i > n | i2 < 1) {
                 border <- TRUE
@@ -447,21 +507,24 @@ qtn_linkage <-
             inf[[z]] <- inf_temp
             QTN_causing_ld[[z]] <-
               data.frame(
-                snp_type = "cause_of_LD",
+                type = "cause_of_LD",
+                trait = "none",
                 genotypes[vector_of_add_QTN, ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             add_gen_info_sup[[z]] <-
               data.frame(
-                snp_type = "QTN_upstream",
+                type = "QTN_upstream",
+                trait = "trait_1",
                 genotypes[sup[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             add_gen_info_inf[[z]] <-
               data.frame(
-                snp_type = "QTN_downstream",
+                type = "QTN_downstream",
+                trait = "trait_2",
                 genotypes[inf[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
@@ -471,12 +534,13 @@ qtn_linkage <-
                                       add_gen_info_inf[[z]])
             LD_summary_add[[z]] <- data.frame(
               z,
-              QTN_causing_ld[[z]][, 2],
-              ld,
+              QTN_causing_ld[[z]][, "snp"],
+              ld_min,
+              ld_max,
               actual_ld_inf,
               actual_ld_sup,
-              add_gen_info_inf[[z]][, 2],
-              add_gen_info_sup[[z]][, 2],
+              add_gen_info_inf[[z]][, "snp"],
+              add_gen_info_sup[[z]][, "snp"],
               ld_between_QTNs_temp,
               check.names = FALSE,
               fix.empty.names = FALSE
@@ -485,7 +549,8 @@ qtn_linkage <-
               c(
                 "rep",
                 "SNP_causing_LD",
-                "input_LD (absolute value)",
+                "ld_min (absolute value)",
+                "ld_max (absolute value)",
                 "Actual_LD_with_QTN_of_Trait_1",
                 "Actual_LD_with_QTN_of_Trait_2",
                 "QTN_for_trait_1",
@@ -496,24 +561,24 @@ qtn_linkage <-
           LD_summary_add <- do.call(rbind, LD_summary_add)
           data.table::fwrite(
             LD_summary_add,
-            "LD_summary_additive.txt",
+            "LD_Summary_Additive.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
             na = NA
           )
           results_add <- do.call(rbind, results_add)
-          ns <- nrow(genotypes) - 5
-          maf <- round(apply(results_add[, -c(1:6)], 1, function(x) {
+          ns <- ncol(genotypes) - 5
+          maf <- round(apply(results_add[, -c(1:7)], 1, function(x) {
             sumx <- ((sum(x) + ns) / ns * 0.5)
             min(sumx,  (1 - sumx))
           }), 4)
-          names(maf) <- results_add[, 2]
+          names(maf) <- results_add[, "snp"]
           results_add <-
             data.frame(
-              results_add[, 1:6],
+              results_add[, 1:7],
               maf = maf,
-              results_add[, -c(1:6)],
+              results_add[, -c(1:7)],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
@@ -525,21 +590,23 @@ qtn_linkage <-
               fix.empty.names = FALSE
             )
           if (!export_gt) {
-            results_add <- results_add[, 1:8]
+            results_add <- results_add[, 1:9]
           }
           if (add_QTN) {
-            write.table(
-              seed_num,
-              paste0("seed_num_for_", add_QTN_num,
-                     "_Add_QTN.txt"),
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = "\t",
-              quote = FALSE
-            )
+            if (verbose){
+              write.table(
+                seed_num,
+                paste0("Seed_num_for_", add_QTN_num,
+                       "_Add_QTN.txt"),
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = "\t",
+                quote = FALSE
+              )
+            }
             data.table::fwrite(
               results_add,
-              "Additive_selected_QTNs.txt",
+              "Additive_Selected_QTNs.txt",
               row.names = FALSE,
               sep = "\t",
               quote = FALSE,
@@ -551,7 +618,7 @@ qtn_linkage <-
               paste0("Chr_", x$chr, "_", x$pos)
             rownames(y) <-
               paste0("Chr_",  y$chr, "_", y$pos)
-            b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+            b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
             return(b)
           },
           x = add_gen_info_sup,
@@ -583,15 +650,16 @@ qtn_linkage <-
               ld_between_QTNs_temp <- c()
               actual_ld_sup <- c()
               actual_ld_inf <- c()
-              again <- TRUE
-              times <- 1
-              dif <- c()
-              while (again) {
-                x <- 1
-                for (j in vector_of_dom_QTN) {
-                  ldsup <- 1
+              x <- 1
+              for (j in vector_of_dom_QTN) {
+                times <- 1
+                dif <- c()
+                ldsup <- 1
+                ldinf <- 1
+                while (times <= 100 & (ldsup < ld_min | ldinf < ld_min | ldsup > ld_max | ldinf > ld_max)) {
                   i <- j + 1
-                  while (ldsup > ld) {
+                  i2 <- j - 1
+                  while (ldsup > ld_max) {
                     if (i > n) {
                       if (verbose)
                         warning(
@@ -614,7 +682,7 @@ qtn_linkage <-
                         count = c(-1, 1)
                       )
                     ldsup <-
-                      abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
+                      abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
                     if (is.nan(ldsup)) {
                       SNPRelate::snpgdsClose(genofile)
                       stop("Monomorphic SNPs are not accepted", call. = F)
@@ -623,9 +691,7 @@ qtn_linkage <-
                   }
                   actual_ld_sup[x] <- ldsup
                   sup_temp[x] <- i - 1
-                  ldinf <- 1
-                  i2 <- j - 1
-                  while (ldinf > ld) {
+                  while (ldinf > ld_max) {
                     if (i2 < 1) {
                       if (verbose)
                         warning(
@@ -642,7 +708,7 @@ qtn_linkage <-
                         count = c(-1, 1)
                       )
                     ldinf <-
-                      abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = "composite"))
+                      abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
                     if (is.nan(ldinf)) {
                       SNPRelate::snpgdsClose(genofile)
                       stop("Monomorphic SNPs are not accepted", call. = F)
@@ -664,24 +730,45 @@ qtn_linkage <-
                       count = c(-1, 1)
                     )
                   ld_between_QTNs_temp[x] <-
-                    SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = "composite")
-                  x <- x + 1
-                }
-                if ((!any(genotypes[sup_temp, - (1:5)] == 0) |
-                     !any(genotypes[inf_temp, - (1:5)] == 0)) &
-                    times <= 10) {
-                  if (!is.null(seed)) {
-                    seed_num[z] <- (seed * s) + z + rep
-                    set.seed(seed_num[z])
+                    SNPRelate::snpgdsLDpair(snp_sup, snp_inf, method = ld_method)[1]
+                  if (((!any(genotypes[sup_temp, - (1:5)] == 0) |
+                        !any(genotypes[inf_temp, - (1:5)] == 0)) & dom) |
+                      ldsup > ld_max | ldinf > ld_max | ldsup < ld_min | ldinf < ld_min) {
+                    if (!is.null(seed)) {
+                      seed_num[z] <- (seed * s) + z + rep
+                      set.seed(seed_num[z])
+                    }
+                    dif <- c(dif, vector_of_add_QTN, j)
+                    j <-
+                      sample(setdiff(index, dif), 1, replace = FALSE)
+                    ldsup <- 1
+                    ldinf <- 1
                   }
-                  dif <- c(dif, vector_of_dom_QTN)
-                  vector_of_dom_QTN <-
-                    sample(setdiff(index, dif), dom_QTN_num, replace = FALSE)
-                  again <- TRUE
-                } else {
-                  again <- FALSE
+                  times <- times + 1
                 }
-                times <- times + 1
+                vector_of_add_QTN[x] <- j
+                x <- x + 1
+                if (((!any(genotypes[sup_temp, - (1:5)] == 0) |
+                      !any(genotypes[inf_temp, - (1:5)] == 0)) &
+                     dom)) {
+                  warning(
+                    "No heterozygote found to simulate dominance.",
+                    call. = F,
+                    immediate. = T
+                  )
+                }
+                if (ldsup < ld_min | ldinf < ld_min) {
+                  stop(
+                    "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                    call. = F
+                  )
+                }
+                if (ldsup > ld_max | ldinf > ld_max) {
+                  stop(
+                    "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                    call. = F
+                  )
+                }
               }
               if (i > n | i2 < 1) {
                 border <- TRUE
@@ -695,21 +782,24 @@ qtn_linkage <-
             inf[[z]] <- inf_temp
             QTN_causing_ld[[z]] <-
               data.frame(
-                snp_type = "cause_of_LD",
+                type = "cause_of_LD",
+                trait = "none",
                 genotypes[vector_of_dom_QTN, ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             dom_gen_info_sup[[z]] <-
               data.frame(
-                snp_type = "QTN_upstream",
+                type = "QTN_upstream",
+                trait = "trait_1",
                 genotypes[sup[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             dom_gen_info_inf[[z]] <-
               data.frame(
-                snp_type = "QTN_downstream",
+                type = "QTN_downstream",
+                trait = "trait_2",
                 genotypes[inf[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
@@ -719,12 +809,13 @@ qtn_linkage <-
                                       dom_gen_info_inf[[z]])
             LD_summary_dom[[z]] <- data.frame(
               z,
-              QTN_causing_ld[[z]][, 2],
-              ld,
+              QTN_causing_ld[[z]][, "snp"],
+              ld_min,
+              ld_max,
               actual_ld_inf,
               actual_ld_sup,
-              dom_gen_info_inf[[z]][, 2],
-              dom_gen_info_sup[[z]][, 2],
+              dom_gen_info_inf[[z]][, "snp"],
+              dom_gen_info_sup[[z]][, "snp"],
               ld_between_QTNs_temp,
               check.names = FALSE,
               fix.empty.names = FALSE
@@ -733,7 +824,8 @@ qtn_linkage <-
               c(
                 "rep",
                 "SNP_causing_LD",
-                "input_LD (absolute value)",
+                "ld_min (absolute value)",
+                "ld_max (absolute value)",
                 "Actual_LD_with_QTN_of_Trait_1",
                 "Actual_LD_with_QTN_of_Trait_2",
                 "QTN_for_trait_1",
@@ -744,24 +836,24 @@ qtn_linkage <-
           LD_summary_dom <- do.call(rbind, LD_summary_dom)
           data.table::fwrite(
             LD_summary_dom,
-            "LD_summary_dominance.txt",
+            "LD_Summary_Dominance.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
             na = NA
           )
           results_dom <- do.call(rbind, results_dom)
-          ns <- nrow(genotypes) - 5
-          maf <- round(apply(results_dom[, -c(1:6)], 1, function(x) {
+          ns <- ncol(genotypes) - 5
+          maf <- round(apply(results_dom[, -c(1:7)], 1, function(x) {
             sumx <- ((sum(x) + ns) / ns * 0.5)
             min(sumx,  (1 - sumx))
           }), 4)
-          names(maf) <- results_dom[, 2]
+          names(maf) <- results_dom[, "snp"]
           results_dom <-
             data.frame(
-              results_dom[, 1:6],
+              results_dom[, 1:7],
               maf = maf,
-              results_dom[, - c(1:6)],
+              results_dom[, - c(1:7)],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
@@ -773,21 +865,23 @@ qtn_linkage <-
               fix.empty.names = FALSE
             )
           if (!export_gt) {
-            results_dom <- results_dom[, 1:8]
+            results_dom <- results_dom[, 1:9]
           }
-          if (add_QTN) {
-            write.table(
-              seed_num,
-              paste0("seed_num_for_", dom_QTN_num,
-                     "_Dom_QTN.txt"),
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = "\t",
-              quote = FALSE
-            )
+          if (dom_QTN) {
+            if (verbose){
+              write.table(
+                seed_num,
+                paste0("Seed_num_for_", dom_QTN_num,
+                       "_Dom_QTN.txt"),
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = "\t",
+                quote = FALSE
+              )
+            }
             data.table::fwrite(
               results_dom,
-              "Dominance_selected_QTNs.txt",
+              "Dominance_Selected_QTNs.txt",
               row.names = FALSE,
               sep = "\t",
               quote = FALSE,
@@ -799,7 +893,7 @@ qtn_linkage <-
               paste0("Chr_", x$chr, "_", x$pos)
             rownames(y) <-
               paste0("Chr_", y$chr, "_", y$pos)
-            b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+            b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
             return(b)
           },
           x = dom_gen_info_sup,
@@ -879,18 +973,19 @@ qtn_linkage <-
             }
             vector_of_add_QTN <-
               sample(index, add_QTN_num, replace = FALSE)
-            genofile <- SNPRelate::snpgdsOpen(gdsfile)
-            x <- 1
             sup_temp <- c()
             ld_between_QTNs_temp <- c()
-            again <- TRUE
-            times <- 1
-            dif <- c()
-            while (again) {
-              for (j in vector_of_add_QTN) {
-                ldsup <- 1
-                i <- j + 1
-                while (ldsup > ld) {
+            x <- 1
+            for (j in vector_of_add_QTN) {
+              times <- 1
+              dif <- c()
+              ldsup <- 1
+              ldinf <- 1
+              i <- j + 1
+              i2 <- j - 1
+              while (times <= 100 & (ldsup > ld_max | ldsup < ld_min) &
+                     (ldinf > ld_max | ldinf < ld_min)) {
+                if (i > n & i2 < 1) {
                   if (i > n) {
                     if (verbose)
                       warning(
@@ -900,47 +995,97 @@ qtn_linkage <-
                       )
                     break
                   }
-                  snp1 <-
-                    gdsfmt::read.gdsn(
-                      gdsfmt::index.gdsn(genofile, "genotype"),
-                      start = c(1, j),
-                      count = c(-1, 1)
-                    )
-                  snp2 <-
-                    gdsfmt::read.gdsn(
-                      gdsfmt::index.gdsn(genofile, "genotype"),
-                      start = c(1, i),
-                      count = c(-1, 1)
-                    )
-                  ldsup <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
-                  if (is.nan(ldsup)) {
-                    SNPRelate::snpgdsClose(genofile)
-                    stop("Monomorphic SNPs are not accepted", call. = F)
+                  if (i2 < 1) {
+                    if (verbose)
+                      warning(
+                        "There are no SNPs upstream. Selecting a different seed number",
+                        call. = F,
+                        immediate. = T
+                      )
+                    break
                   }
-                  i <- i + 1
                 }
-                ld_between_QTNs_temp[x] <- ldsup
-                sup_temp[x] <- i - 1
-                x <- x + 1
-              }
-              if ((!any(genotypes[sup_temp, - (1:5)] == 0) |
-                   !any(genotypes[vector_of_dom_QTN, - (1:5)] == 0)) &
-                  times <= 10 & dom) {
-                if (!is.null(seed)) {
-                  seed_num[z] <- (seed * s) + z
-                  set.seed(seed_num[z])
+                snp1 <-
+                  gdsfmt::read.gdsn(
+                    gdsfmt::index.gdsn(genofile, "genotype"),
+                    start = c(1, j),
+                    count = c(-1, 1)
+                  )
+                snp2 <-
+                  gdsfmt::read.gdsn(
+                    gdsfmt::index.gdsn(genofile, "genotype"),
+                    start = c(1, i),
+                    count = c(-1, 1)
+                  )
+                snp3 <-
+                  gdsfmt::read.gdsn(
+                    gdsfmt::index.gdsn(genofile, "genotype"),
+                    start = c(1, i2),
+                    count = c(-1, 1)
+                  )
+                ldsup <-
+                  abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
+                ldinf <-
+                  abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
+                if (is.nan(ldinf) | is.nan(ldsup)) {
+                  SNPRelate::snpgdsClose(genofile)
+                  stop("Monomorphic SNPs are not accepted", call. = F)
                 }
-                dif <- c(dif, vector_of_add_QTN)
-                vector_of_add_QTN <-
-                  sample(setdiff(index, dif), add_QTN_num, replace = FALSE)
-                again <- TRUE
-              } else {
-                again <- FALSE
+                if ((!any(genotypes[i, - (1:5)] == 0) &
+                     !any(genotypes[i2, - (1:5)] == 0) & dom) |
+                    (ldsup > ld_max | ldsup < ld_min) &
+                    (ldinf > ld_max | ldinf < ld_min)) {
+                  if (!is.null(seed)) {
+                    seed_num[z] <- (seed * s) + z
+                    set.seed(seed_num[z])
+                  }
+                  dif <- c(dif, vector_of_add_QTN, j)
+                  j <-
+                    sample(setdiff(index, dif), 1, replace = FALSE)
+                  ldsup <- 1
+                  ldinf <- 1
+                }
+                i <- i + 1
+                i2 <- i2 - 1
+                times <- times + 1
               }
-              times <- times + 1
+              if (ldsup > ld_max) {
+                ldsup <- 100
+              } else if (ldinf > ld_max) {
+                ldinf <- 100
+              } else if (ldsup < ld_min) {
+                ldsup <- 100
+              } else if (ldinf < ld_min) {
+                ldinf <- 100
+              }
+              closest <- which.min(abs(c(ld_max - ldinf,  ld_max -ldsup)))
+              ld_between_QTNs_temp[x] <- 
+                ifelse(closest == 1 , ldinf, ldsup)
+              sup_temp[x] <-
+                ifelse(closest == 1 , i2 + 1, i - 1)
+              x <- x + 1
+              if ((!any(genotypes[i - 1, - (1:5)] == 0) &
+                   !any(genotypes[i2 + 1, - (1:5)] == 0) & dom)) {
+                warning(
+                  "No heterozygote found to simulate dominance.",
+                  call. = F,
+                  immediate. = T
+                )
+              }
+              if (ldsup < ld_min & ldinf < ld_min) {
+                stop(
+                  "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                  call. = F
+                )
+              }
+              if (ldsup > ld_max & ldinf > ld_max) {
+                stop(
+                  "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                  call. = F
+                )
+              }
             }
-            if (i > n | i2 < 1) {
+            if (i > n | i < 1) {
               border <- TRUE
             } else {
               border <- FALSE
@@ -952,14 +1097,16 @@ qtn_linkage <-
           inf[[z]] <- vector_of_add_QTN
           add_gen_info_inf[[z]] <-
             data.frame(
-              snp_type = "QTN_for_trait_1",
+              type = "QTN_selected",
+              trait = "trait_1",
               genotypes[vector_of_add_QTN, ],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
           add_gen_info_sup[[z]] <-
             data.frame(
-              snp_type = "QTN_for_trait_2",
+              type = "QTN_in_LD",
+              trait = "trait_2",
               genotypes[sup[[z]], ],
               check.names = FALSE,
               fix.empty.names = FALSE
@@ -968,17 +1115,19 @@ qtn_linkage <-
                                 add_gen_info_sup[[z]])
           LD_summary[[z]] <- data.frame(
             z,
-            ld,
+            ld_min,
+            ld_max,
             ld_between_QTNs_temp,
-            add_gen_info_inf[[z]][, 2],
-            add_gen_info_sup[[z]][, 2],
+            add_gen_info_inf[[z]][, "snp"],
+            add_gen_info_sup[[z]][, "snp"],
             check.names = FALSE,
             fix.empty.names = FALSE
           )
           colnames(LD_summary[[z]]) <-
             c(
               "rep",
-              "Aimed_LD (absolute value)",
+              "ld_min (absolute value)",
+              "ld_max (absolute value)",
               "Actual_LD ",
               "QTN_for_trait_1",
               "QTN_for_trait_2"
@@ -987,24 +1136,24 @@ qtn_linkage <-
         LD_summary <- do.call(rbind, LD_summary)
         data.table::fwrite(
           LD_summary,
-          "LD_summary.txt",
+          "LD_Summary.txt",
           row.names = FALSE,
           sep = "\t",
           quote = FALSE,
           na = NA
         )
         results <- do.call(rbind, results)
-        ns <- nrow(genotypes) - 5
-        maf <- round(apply(results[, -c(1:6)], 1, function(x) {
+        ns <- ncol(genotypes) - 5
+        maf <- round(apply(results[, -c(1:7)], 1, function(x) {
           sumx <- ((sum(x) + ns) / ns * 0.5)
           min(sumx,  (1 - sumx))
         }), 4)
-        names(maf) <- results[, 2]
+        names(maf) <- results[, "snp"]
         results <-
           data.frame(
-            results[, 1:6],
+            results[, 1:7],
             maf = maf,
-            results[, - c(1:6)],
+            results[, - c(1:7)],
             check.names = FALSE,
             fix.empty.names = FALSE
           )
@@ -1016,25 +1165,27 @@ qtn_linkage <-
             fix.empty.names = FALSE
           )
         if (!export_gt) {
-          results <- results[, 1:8]
+          results <- results[, 1:9]
         }
         if (add_QTN) {
-          write.table(
-            seed_num,
-            paste0(
-              "seed_num_for_",
-              add_QTN_num,
-              "_Add_and_Dom_QTN",
-              ".txt"
-            ),
-            row.names = FALSE,
-            col.names = FALSE,
-            sep = "\t",
-            quote = FALSE
-          )
+          if (verbose){
+            write.table(
+              seed_num,
+              paste0(
+                "Seed_num_for_",
+                add_QTN_num,
+                "_Add_and_Dom_QTN",
+                ".txt"
+              ),
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = "\t",
+              quote = FALSE
+            )
+          }
           data.table::fwrite(
             results,
-            "Additive_selected_QTNs.txt",
+            "Additive_Selected_QTNs.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
@@ -1046,7 +1197,7 @@ qtn_linkage <-
             paste0("Chr_", x$chr, "_", x$pos)
           rownames(y) <-
             paste0("Chr_", y$chr, "_", y$pos)
-          b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+          b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
           return(b)
         },
         x = add_gen_info_sup,
@@ -1072,22 +1223,37 @@ qtn_linkage <-
               }
               vector_of_add_QTN <-
                 sample(index, add_QTN_num, replace = FALSE)
-              genofile <- SNPRelate::snpgdsOpen(gdsfile)
               x <- 1
               sup_temp <- c()
               ld_between_QTNs_temp <- c()
               for (j in vector_of_add_QTN) {
+                times <- 1
+                dif <- c()
                 ldsup <- 1
+                ldinf <- 1
                 i <- j + 1
-                while (ldsup > ld) {
-                  if (i > n) {
-                    if (verbose)
-                      warning(
-                        "There are no SNPs downstream. Selecting a different seed number",
-                        call. = F,
-                        immediate. = T
-                      )
-                    break
+                i2 <- j - 1
+                while (times <= 100 & (ldsup > ld_max | ldsup < ld_min) &
+                       (ldinf > ld_max | ldinf < ld_min)) {
+                  if (i > n & i2 < 1) {
+                    if (i > n) {
+                      if (verbose)
+                        warning(
+                          "There are no SNPs downstream. Selecting a different seed number",
+                          call. = F,
+                          immediate. = T
+                        )
+                      break
+                    }
+                    if (i2 < 1) {
+                      if (verbose)
+                        warning(
+                          "There are no SNPs upstream. Selecting a different seed number",
+                          call. = F,
+                          immediate. = T
+                        )
+                      break
+                    }
                   }
                   snp1 <-
                     gdsfmt::read.gdsn(
@@ -1101,38 +1267,85 @@ qtn_linkage <-
                       start = c(1, i),
                       count = c(-1, 1)
                     )
+                  snp3 <-
+                    gdsfmt::read.gdsn(
+                      gdsfmt::index.gdsn(genofile, "genotype"),
+                      start = c(1, i2),
+                      count = c(-1, 1)
+                    )
                   ldsup <-
-                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
-                  if (is.nan(ldsup)) {
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
+                  ldinf <-
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
+                  if (is.nan(ldinf) | is.nan(ldsup)) {
                     SNPRelate::snpgdsClose(genofile)
                     stop("Monomorphic SNPs are not accepted", call. = F)
                   }
+                  if ((ldsup > ld_max | ldsup < ld_min) &
+                      (ldinf > ld_max | ldinf < ld_min)) {
+                    if (!is.null(seed)) {
+                      seed_num[z] <- (seed * s) + z
+                      set.seed(seed_num[z])
+                    }
+                    dif <- c(dif, vector_of_add_QTN, j)
+                    j <-
+                      sample(setdiff(index, dif), 1, replace = FALSE)
+                    ldsup <- 1
+                    ldinf <- 1
+                  }
                   i <- i + 1
+                  i2 <- i2 - 1
+                  times <- times + 1
                 }
-                sup_temp[x] <- i - 1
-                ld_between_QTNs_temp[x] <- ldsup
+                if (ldsup > ld_max) {
+                  ldsup <- 100
+                } else if (ldinf > ld_max) {
+                  ldinf <- 100
+                } else if (ldsup < ld_min) {
+                  ldsup <- 100
+                } else if (ldinf < ld_min) {
+                  ldinf <- 100
+                }
+                closest <- which.min(abs(c(ld_max - ldinf,  ld_max -ldsup)))
+                ld_between_QTNs_temp[x] <- 
+                  ifelse(closest == 1 , ldinf, ldsup)
+                sup_temp[x] <-
+                  ifelse(closest == 1 , i2 + 1, i - 1)
                 x <- x + 1
+                if (ldsup < ld_min & ldinf < ld_min) {
+                  stop(
+                    "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                    call. = F
+                  )
+                }
+                if (ldsup > ld_max & ldinf > ld_max) {
+                  stop(
+                    "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                    call. = F
+                  )
+                }
               }
-              if (i > n | i2 < 1) {
+              if (i > n | i < 1) {
                 border <- TRUE
               } else {
                 border <- FALSE
               }
               s <- s + 1
             }
-            SNPRelate::snpgdsClose(genofile)
             sup[[z]] <- sup_temp
             inf[[z]] <- vector_of_add_QTN
             add_gen_info_inf[[z]] <-
               data.frame(
-                snp_type = "QTN_for_trait_1",
+                type = "QTN_selected",
+                trait = "trait_1",
                 genotypes[vector_of_add_QTN, ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             add_gen_info_sup[[z]] <-
               data.frame(
-                snp_type = "QTN_for_trait_2",
+                type = "QTN_in_LD",
+                trait = "trait_2",
                 genotypes[sup[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
@@ -1141,43 +1354,46 @@ qtn_linkage <-
                                       add_gen_info_sup[[z]])
             LD_summary_add[[z]] <- data.frame(
               z,
-              ld,
+              ld_min,
+              ld_max,
               ld_between_QTNs_temp,
-              add_gen_info_inf[[z]][, 2],
-              add_gen_info_sup[[z]][, 2],
+              add_gen_info_inf[[z]][, "snp"],
+              add_gen_info_sup[[z]][, "snp"],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
             colnames(LD_summary_add[[z]]) <-
               c(
                 "rep",
-                "Aimed_LD (absolute value)",
+                "ld_min (absolute value)",
+                "ld_max (absolute value)",
                 "Actual_LD ",
                 "QTN_for_trait_1",
                 "QTN_for_trait_2"
               )
           }
+          SNPRelate::snpgdsClose(genofile)
           LD_summary_add <- do.call(rbind, LD_summary_add)
           data.table::fwrite(
             LD_summary_add,
-            "LD_summary_Additive.txt",
+            "LD_Summary_Additive.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
             na = NA
           )
           results_add <- do.call(rbind, results_add)
-          ns <- nrow(genotypes) - 5
-          maf <- round(apply(results_add[, -c(1:6)], 1, function(x) {
+          ns <- ncol(genotypes) - 5
+          maf <- round(apply(results_add[, -c(1:7)], 1, function(x) {
             sumx <- ((sum(x) + ns) / ns * 0.5)
             min(sumx,  (1 - sumx))
           }), 4)
-          names(maf) <- results_add[, 2]
+          names(maf) <- results_add[, "snp"]
           results_add <-
             data.frame(
-              results_add[, 1:6],
+              results_add[, 1:7],
               maf = maf,
-              results_add[, - c(1:6)],
+              results_add[, - c(1:7)],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
@@ -1189,22 +1405,24 @@ qtn_linkage <-
               fix.empty.names = FALSE
             )
           if (!export_gt) {
-            results_add <- results_add[, 1:8]
+            results_add <- results_add[, 1:9]
           }
           if (add_QTN) {
-            write.table(
-              seed_num,
-              paste0("seed_num_for_", add_QTN_num,
-                     "_Add_QTN",
-                     ".txt"),
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = "\t",
-              quote = FALSE
-            )
+            if (verbose){
+              write.table(
+                seed_num,
+                paste0("Seed_num_for_", add_QTN_num,
+                       "_Add_QTN",
+                       ".txt"),
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = "\t",
+                quote = FALSE
+              )
+            }
             data.table::fwrite(
               results_add,
-              "Additive_selected_QTNs.txt",
+              "Additive_Selected_QTNs.txt",
               row.names = FALSE,
               sep = "\t",
               quote = FALSE,
@@ -1216,7 +1434,7 @@ qtn_linkage <-
               paste0("Chr_", x$chr, "_", x$pos)
             rownames(y) <-
               paste0("Chr_",  y$chr, "_", y$pos)
-            b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+            b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
             return(b)
           },
           x = add_gen_info_sup,
@@ -1242,18 +1460,19 @@ qtn_linkage <-
               }
               vector_of_dom_QTN <-
                 sample(index, dom_QTN_num, replace = FALSE)
-              genofile <- SNPRelate::snpgdsOpen(gdsfile)
-              x <- 1
               sup_temp <- c()
               ld_between_QTNs_temp <- c()
-              again <- TRUE
-              times <- 1
-              dif <- c()
-              while (again) {
-                for (j in vector_of_dom_QTN) {
-                  ldsup <- 1
-                  i <- j + 1
-                  while (ldsup > ld) {
+              x <- 1
+              for (j in vector_of_dom_QTN) {
+                times <- 1
+                dif <- c()
+                ldsup <- 1
+                ldinf <- 1
+                i <- j + 1
+                i2 <- j - 1
+                while (times <= 100 & (ldsup > ld_max | ldsup < ld_min) &
+                       (ldinf > ld_max | ldinf < ld_min)) {
+                  if (i > n & i2 < 1) {
                     if (i > n) {
                       if (verbose)
                         warning(
@@ -1263,47 +1482,97 @@ qtn_linkage <-
                         )
                       break
                     }
-                    snp1 <-
-                      gdsfmt::read.gdsn(
-                        gdsfmt::index.gdsn(genofile, "genotype"),
-                        start = c(1, j),
-                        count = c(-1, 1)
-                      )
-                    snp2 <-
-                      gdsfmt::read.gdsn(
-                        gdsfmt::index.gdsn(genofile, "genotype"),
-                        start = c(1, i),
-                        count = c(-1, 1)
-                      )
-                    ldsup <-
-                      abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = "composite"))
-                    if (is.nan(ldsup)) {
-                      SNPRelate::snpgdsClose(genofile)
-                      stop("Monomorphic SNPs are not accepted", call. = F)
+                    if (i2 < 1) {
+                      if (verbose)
+                        warning(
+                          "There are no SNPs upstream. Selecting a different seed number",
+                          call. = F,
+                          immediate. = T
+                        )
+                      break
                     }
-                    i <- i + 1
                   }
-                  sup_temp[x] <- i - 1
-                  ld_between_QTNs_temp[x] <- ldsup
-                  x <- x + 1
-                }
-                if ((!any(genotypes[sup_temp, - (1:5)] == 0) |
-                     !any(genotypes[vector_of_dom_QTN, - (1:5)] == 0)) &
-                    times <= 10) {
-                  if (!is.null(seed)) {
-                    seed_num[z] <- (seed * s) + z + rep
-                    set.seed(seed_num[z])
+                  snp1 <-
+                    gdsfmt::read.gdsn(
+                      gdsfmt::index.gdsn(genofile, "genotype"),
+                      start = c(1, j),
+                      count = c(-1, 1)
+                    )
+                  snp2 <-
+                    gdsfmt::read.gdsn(
+                      gdsfmt::index.gdsn(genofile, "genotype"),
+                      start = c(1, i),
+                      count = c(-1, 1)
+                    )
+                  snp3 <-
+                    gdsfmt::read.gdsn(
+                      gdsfmt::index.gdsn(genofile, "genotype"),
+                      start = c(1, i2),
+                      count = c(-1, 1)
+                    )
+                  ldsup <-
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp2, method = ld_method))[1]
+                  ldinf <-
+                    abs(SNPRelate::snpgdsLDpair(snp1, snp3, method = ld_method))[1]
+                  if (is.nan(ldinf) | is.nan(ldsup)) {
+                    SNPRelate::snpgdsClose(genofile)
+                    stop("Monomorphic SNPs are not accepted", call. = F)
                   }
-                  dif <- c(dif, vector_of_dom_QTN)
-                  vector_of_dom_QTN <-
-                    sample(setdiff(index, dif), dom_QTN_num, replace = FALSE)
-                  again <- TRUE
-                } else {
-                  again <- FALSE
+                  if ((!any(genotypes[i, - (1:5)] == 0) &
+                       !any(genotypes[i2, - (1:5)] == 0) & dom) |
+                      (ldsup > ld_max | ldsup < ld_min) &
+                      (ldinf > ld_max | ldinf < ld_min)) {
+                    if (!is.null(seed)) {
+                      seed_num[z] <- (seed * s) + z + rep
+                      set.seed(seed_num[z])
+                    }
+                    dif <- c(dif, vector_of_dom_QTN, j)
+                    j <-
+                      sample(setdiff(index, dif), 1, replace = FALSE)
+                    ldsup <- 1
+                    ldinf <- 1
+                  }
+                  i <- i + 1
+                  i2 <- i2 - 1
+                  times <- times + 1
                 }
-                times <- times + 1
+                if (ldsup > ld_max) {
+                  ldsup <- 100
+                } else if (ldinf > ld_max) {
+                  ldinf <- 100
+                } else if (ldsup < ld_min) {
+                  ldsup <- 100
+                } else if (ldinf < ld_min) {
+                  ldinf <- 100
+                }
+                closest <- which.min(abs(c(ld_max - ldinf,  ld_max -ldsup)))
+                ld_between_QTNs_temp[x] <- 
+                  ifelse(closest == 1 , ldinf, ldsup)
+                sup_temp[x] <-
+                  ifelse(closest == 1 , i2 + 1, i - 1)
+                x <- x + 1
+                if ((!any(genotypes[i - 1, - (1:5)] == 0) &
+                     !any(genotypes[i2 + 1, - (1:5)] == 0) & dom)) {
+                  warning(
+                    "No heterozygote found to simulate dominance.",
+                    call. = F,
+                    immediate. = T
+                  )
+                }
+                if (ldsup < ld_min & ldinf < ld_min) {
+                  stop(
+                    "None of the selected SNPs met the minimum LD threshold. Try another seed number or provide a genotypic file with enough LD!",
+                    call. = F
+                  )
+                }
+                if (ldsup > ld_max & ldinf > ld_max) {
+                  stop(
+                    "None of the selected SNPs met the maximum LD threshold. Try another seed number or conduct an LD pruning in your genotypic file!",
+                    call. = F
+                  )
+                }
               }
-              if (i > n | i2 < 1) {
+              if (i > n | i < 1) {
                 border <- TRUE
               } else {
                 border <- FALSE
@@ -1315,14 +1584,16 @@ qtn_linkage <-
             inf[[z]] <- vector_of_dom_QTN
             dom_gen_info_inf[[z]] <-
               data.frame(
-                snp_type = "QTN_for_trait_1",
+                type = "QTN_selected",
+                trait = "trait_1",
                 genotypes[vector_of_dom_QTN, ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
               )
             dom_gen_info_sup[[z]] <-
               data.frame(
-                snp_type = "QTN_for_trait_2",
+                type = "QTN_in_LD",
+                trait = "trait_2",
                 genotypes[sup[[z]], ],
                 check.names = FALSE,
                 fix.empty.names = FALSE
@@ -1331,17 +1602,19 @@ qtn_linkage <-
                                       dom_gen_info_sup[[z]])
             LD_summary_dom[[z]] <- data.frame(
               z,
-              ld,
+              ld_min,
+              ld_max,
               ld_between_QTNs_temp,
-              dom_gen_info_inf[[z]][, 2],
-              dom_gen_info_sup[[z]][, 2],
+              dom_gen_info_inf[[z]][, "snp"],
+              dom_gen_info_sup[[z]][, "snp"],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
             colnames(LD_summary_dom[[z]]) <-
               c(
                 "rep",
-                "Aimed_LD (absolute value)",
+                "ld_min (absolute value)",
+                "ld_max (absolute value)",
                 "Actual_LD ",
                 "QTN_for_trait_1",
                 "QTN_for_trait_2"
@@ -1350,24 +1623,24 @@ qtn_linkage <-
           LD_summary_dom <- do.call(rbind, LD_summary_dom)
           data.table::fwrite(
             LD_summary_dom,
-            "LD_summary_Dominance.txt",
+            "LD_Summary_Dominance.txt",
             row.names = FALSE,
             sep = "\t",
             quote = FALSE,
             na = NA
           )
           results_dom <- do.call(rbind, results_dom)
-          ns <- nrow(genotypes) - 5
-          maf <- round(apply(results_dom[, -c(1:6)], 1, function(x) {
+          ns <- ncol(genotypes) - 5
+          maf <- round(apply(results_dom[, -c(1:7)], 1, function(x) {
             sumx <- ((sum(x) + ns) / ns * 0.5)
             min(sumx,  (1 - sumx))
           }), 4)
-          names(maf) <- results_dom[, 2]
+          names(maf) <- results_dom[, "snp"]
           results_dom <-
             data.frame(
-              results_dom[, 1:6],
+              results_dom[, 1:7],
               maf,
-              results_dom[, - c(1:6)],
+              results_dom[, - c(1:7)],
               check.names = FALSE,
               fix.empty.names = FALSE
             )
@@ -1379,22 +1652,24 @@ qtn_linkage <-
               fix.empty.names = FALSE
             )
           if (!export_gt) {
-            results_dom <- results_dom[, 1:8]
+            results_dom <- results_dom[, 1:9]
           }
-          if (add_QTN) {
-            write.table(
-              seed_num,
-              paste0("seed_num_for_", dom_QTN_num,
-                     "_Dom_QTN",
-                     ".txt"),
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = "\t",
-              quote = FALSE
-            )
+          if (dom_QTN) {
+            if (verbose){
+              write.table(
+                seed_num,
+                paste0("Seed_num_for_", dom_QTN_num,
+                       "_Dom_QTN",
+                       ".txt"),
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = "\t",
+                quote = FALSE
+              )
+            }
             data.table::fwrite(
               results_dom,
-              "Dominance_selected_QTNs.txt",
+              "Dominance_Selected_QTNs.txt",
               row.names = FALSE,
               sep = "\t",
               quote = FALSE,
@@ -1406,7 +1681,7 @@ qtn_linkage <-
               paste0("Chr_", x$chr, "_", x$pos)
             rownames(y) <-
               paste0("Chr_", y$chr, "_", y$pos)
-            b <- list(t(x[, - (1:6)]), t(y[, - (1:6)]))
+            b <- list(t(x[, - (1:7)]), t(y[, - (1:7)]))
             return(b)
           },
           x = dom_gen_info_sup,

@@ -9,6 +9,7 @@
 #' @keywords internal
 #' @param SNP_effect = "Add",
 #' @param verbose = TRUE
+#' @param chr_prefix = "chrm"
 #' @return genotype data sampled
 #' @author  Samuel Fernandes
 #' Last update: Apr 20, 2020
@@ -22,7 +23,8 @@ file_loader <-
            prefix = NULL,
            SNP_impute = "Middle",
            SNP_effect = "Add",
-           verbose = TRUE) {
+           verbose = TRUE,
+           chr_prefix = "chr") {
     #'--------------------------------------------------------------------------
     hap_names <- c(
       "rs#",
@@ -118,7 +120,7 @@ file_loader <-
             all(unlist(ifelse(
               is.character(data_type[, 12]),
               strsplit(unique(data_type[, 12]), ""),
-              unique(data_type[, 12])
+              "numeric"
             )) %in% nucleotide)) {
           input_format <- "hapmap"
         } else if (all(colnames(data_type)[1:5] == c("snp", "allele", "chr", "pos", "cm"))) {
@@ -194,7 +196,7 @@ file_loader <-
                    all(unlist(ifelse(
                      is.character(data_type[, 12]),
                      strsplit(unique(data_type[, 12]), ""),
-                     unique(data_type[, 12])
+                     "numeric"
                    )) %in% nucleotide)) {
           input_format <- "hapmap"
         } else {
@@ -236,7 +238,8 @@ file_loader <-
           out.fn = temp,
           method = "biallelic.only",
           snpfirstdim = FALSE,
-          verbose = FALSE
+          verbose = FALSE,
+          ignore.chr.prefix = chr_prefix
         )
         genofile <- SNPRelate::snpgdsOpen(temp)
         GD <-
@@ -331,11 +334,28 @@ file_loader <-
       }
       files <- sort(files)
       nn <- strsplit(files[c(1, length(files))], "")
-      nn_com <- match(FALSE, do.call("==", nn)) - 1
+      l_nn <- lengths(nn)
+      if (length(unique(l_nn)) > 1) {
+        if (l_nn[1] - l_nn[2] > 0) {
+          nn[[2]] <- c(nn[[2]], rep(".", l_nn[1] - l_nn[2])) 
+        } else {
+          nn[[1]] <- c(nn[[1]], rep(".", l_nn[2] - l_nn[1]))
+        }
+      }
+      do_nn <- do.call("==", nn)
+      nn_com <- match(FALSE, if(all(do_nn)) { FALSE } else {do_nn}) - 1
       if (nn_com == 0) {
         out_name <- "out_geno"
       } else {
         out_name <- substr(files[1], 1, nn_com)
+        if (length(files) > 2) {
+          nn[[2]] <- unlist(strsplit(out_name, ""))
+          if (length(nn[[2]]) != length(nn[[1]])) {
+              nn[[2]] <- c(nn[[2]], rep(".", length(nn[[1]]) - length(nn[[2]]))) 
+          }
+          nn_com <- match(FALSE, do.call("==", nn)) - 1
+          out_name <- substr(out_name, 1, nn_com)
+        }
       }
       if (grepl(".VCF$", toupper(files[1]))) {
         input_format <- "VCF"
@@ -353,7 +373,7 @@ file_loader <-
             all(unlist(ifelse(
               is.character(data_type[, 12]),
               strsplit(unique(data_type[, 12]), ""),
-              unique(data_type[, 12])
+              "numeric"
             )) %in% nucleotide)) {
           input_format <- "hapmap"
         } else if (all(colnames(data_type)[1:5] == c("snp", "allele", "chr", "pos", "cm"))) {
@@ -408,7 +428,7 @@ file_loader <-
                    all(unlist(ifelse(
                      is.character(data_type[, 12]),
                      strsplit(unique(data_type[, 12]), ""),
-                     unique(data_type[, 12])
+                     "numeric"
                    )) %in% nucleotide)) {
           input_format <- "hapmap"
         } else {
@@ -469,7 +489,8 @@ file_loader <-
           out.fn = temp,
           method = "biallelic.only",
           snpfirstdim = FALSE,
-          verbose = FALSE
+          verbose = FALSE,
+          ignore.chr.prefix = chr_prefix
         )
         genofile <- SNPRelate::snpgdsOpen(temp)
         GD <-
@@ -576,6 +597,7 @@ file_loader <-
       GD = GD,
       GI = GI,
       input_format = input_format,
-      out_name = out_name
+      out_name = out_name,
+      temp = temp
     ))
   }

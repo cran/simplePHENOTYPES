@@ -34,7 +34,9 @@ phenotypes <-
            add  = NULL,
            dom = NULL,
            epi = NULL,
-           cor_res = NULL) {
+           cor_res = NULL,
+           mean = NULL,
+           cor = NULL) {
     #---------------------------------------------------------------------------
     h <- 0
     n <- nrow(base_line_trait[[1]]$base_line)
@@ -85,7 +87,7 @@ phenotypes <-
               simulated_cor[[z]] <- sigma
               simulated_data[[z]][, 2:(ntraits + 1)] <-
                 mvtnorm::rmvnorm(n = n,
-                                 mean = rep(0, ntraits),
+                                 mean = mean,
                                  sigma = sigma)
             }
             H2 <- matrix(0, 1, ntraits)
@@ -98,7 +100,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -116,7 +120,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -140,7 +146,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".fam"
                   ),
                   row.names = FALSE,
@@ -162,7 +170,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -171,12 +181,13 @@ phenotypes <-
                 na = NA
               )
             }
+            if (verbose){
             write.table(
               ss,
               ifelse(
                 output_format == "multi-file",
                 paste0(
-                  "../seed_number_for_",
+                  "../Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
@@ -184,11 +195,13 @@ phenotypes <-
                   ".txt"
                 ),
                 paste0(
-                  "seed_number_for_",
+                  "Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 )
               ),
@@ -197,6 +210,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
           } else {
             residual_cov <-  diag((vg / h2[i, ]) - vg)
             colnames <- c("<Trait>",
@@ -228,11 +242,18 @@ phenotypes <-
                 mvtnorm::rmvnorm(n = n,
                                  mean = rep(0, ntraits),
                                  sigma = sigma)
+              simulated_data[[z]][, 2:(ntraits + 1)] <- 
+                apply(t(1:ntraits), 2, function(x) {simulated_data[[z]][, 2:(ntraits + 1)][, x] + mean[x]})
               vp[z, ] <-
                 diag(var(simulated_data[[z]][, 2:(ntraits + 1)]))
             }
             H2_temp <- vg / t(vp)
             if (QTN_variance) {
+              if (!is.null(cor)) {warning(
+                "Please notice that when \'cor\' is provided, the PVE is only accurate for trait 1 since the Cholesky transformation changes the allelic effects of all other traits to ensure the desired correlation.",
+                call. = F,
+                immediate. = T
+              )}
               if (add) {
                 for (u in 1:ntraits) {
                   lqtna <- length(base_line_trait[[1]]$QTN_var$var_add[[u]])
@@ -248,7 +269,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           add_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_ADD_QTNs_trait_", u , ".txt"),
+                    paste0("PVE_of_ADD_QTNs_Trait_", u , ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -275,7 +296,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           dom_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_DOM_QTNs_trait_", u , ".txt"),
+                    paste0("PVE_of_DOM_QTNs_Trait_", u , ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -302,7 +323,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           epi_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_EPI_QTNs_trait_", u , ".txt"),
+                    paste0("PVE_of_EPI_QTNs_trait_", u , ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -321,7 +342,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -339,7 +362,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -363,7 +388,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".fam"
                   ),
                   row.names = FALSE,
@@ -385,7 +412,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -394,24 +423,29 @@ phenotypes <-
                 na = NA
               )
             }
+            if (verbose){
             write.table(
               ss,
               ifelse(
                 output_format == "multi-file",
                 paste0(
-                  "../seed_number_for_",
+                  "../Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 paste0(
-                  "seed_number_for_",
+                  "Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 )
               ),
@@ -420,17 +454,16 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
           }
         }
         colnames(H2) <- paste0("Trait_", 1:ntraits)
-        if (verbose) {
-            cat("\nPopulation Heritability:\n")
-            print(h2)
-          cat("\nSample heritability (Average of",
-              rep,
-              " replications): \n")
-          print(H2)
-        }
+        cat("\nPopulation Heritability:\n")
+        print(h2)
+        cat("\nSample heritability (Average of",
+            rep,
+            " replications): \n")
+        print(H2)
         if (all(H2 != 1)) {
           sample_cor <- matrix(0, ntraits, ntraits)
           for (v in 1:rep) {
@@ -448,7 +481,7 @@ phenotypes <-
           return(list(sample_cor = sample_cor))
         }
       } else {
-        H2 <- matrix(NA, nrow = rep, ncol = ncol(h2))
+        H2 <- matrix(NA, nrow = rep, ncol = length(h2))
         vg <- var(base_line_trait[[1]]$base_line)
         if (vg == 0) {
           warning("Genetic variance = 0! Please select a different set of QTNs",
@@ -475,17 +508,21 @@ phenotypes <-
                 ss <- c(ss, sss)
               }
               simulated_data[, j + 1] <-
-                rnorm(n, mean = 0, sd = 1)
+                rnorm(n, mean = mean, sd = 1)
+              
             }
-            H2 <- matrix(0, nrow = 1, ncol = ncol(h2))
-            write.table(
+            H2 <- matrix(0, nrow = 1, ncol = length(h2))
+            if (verbose){
+              write.table(
               ss,
               paste0(
-                "seed_number_for_",
+                "Seed_number_for_",
                 rep,
                 "_Reps",
                 "_Herit_",
-                paste(h2[i, ], collapse = "_"),
+                ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                       paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                       paste(h2[i,], collapse = "_")),
                 ".txt"
               ),
               row.names = FALSE,
@@ -493,6 +530,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
             if (output_format == "multi-file") {
               invisible(apply(as.matrix(1:rep), 1, function(x) {
                 data.table::fwrite(
@@ -502,7 +540,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -529,7 +569,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -552,7 +594,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".fam"
                 ),
                 row.names = FALSE,
@@ -569,7 +613,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -603,11 +649,16 @@ phenotypes <-
                       mean = 0,
                       sd = sqrt(residual.variance))
               simulated_data[, j + 1] <-
-                base_line_trait[[1]]$base_line + normal_random_variables
+                base_line_trait[[1]]$base_line + normal_random_variables + mean
               vp[j] <- var(simulated_data[, j + 1])
               H2[j, i] <- vg / vp[j]
             }
             if (QTN_variance) {
+              if (!is.null(cor)) {warning(
+                "Please notice that when \'cor\' is provided, the PVE is only accurate for trait 1 since the Cholesky transformation changes the allelic effects of all other traits to ensure the desired correlation.",
+                call. = F,
+                immediate. = T
+              )}
               if (add) {
                 lqtna <- length(base_line_trait[[1]]$var_add)
                 add_var_per_QTN <-
@@ -622,7 +673,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         add_var_per_QTN),
-                  "Percent_variation_explained_by_ADD_QTNs_trait_1.txt",
+                  "PVE_of_ADD_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -647,7 +698,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         dom_var_per_QTN),
-                  "Percent_variation_explained_by_DOM_QTNs_trait_1.txt",
+                  "PVE_of_DOM_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -672,7 +723,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         epi_var_per_QTN),
-                  "Percent_variation_explained_by_EPI_QTNs_trait_1.txt",
+                  "PVE_of_EPI_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -680,14 +731,17 @@ phenotypes <-
                 )
               }
             }
+            if (verbose){
             write.table(
               ss,
               paste0(
-                "seed_number_for_",
+                "Seed_number_for_",
                 rep,
                 "_Reps",
                 "_Herit_",
-                paste(h2[i, ], collapse = "_"),
+                ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                       paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                       paste(h2[i,], collapse = "_")),
                 ".txt"
               ),
               row.names = FALSE,
@@ -695,6 +749,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
             if (output_format == "multi-file") {
               invisible(apply(as.matrix(1:rep), 1, function(x) {
                 data.table::fwrite(
@@ -704,7 +759,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -731,7 +788,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -754,7 +813,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".fam"
                 ),
                 row.names = FALSE,
@@ -771,7 +832,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -783,13 +846,11 @@ phenotypes <-
           }
         }
         H2 <- apply(H2, 2, mean)
-        if (verbose) {
-          cat("\nPopulation Heritability:", h2)
-          cat("\nSample heritability (Average of",
-              rep,
-              " replications): \n")
-          print(H2)
-        }
+        cat("\nPopulation Heritability:", h2)
+        cat("\nSample heritability (Average of",
+            rep,
+            " replications): \n")
+        print(H2)
         if (to_r) {
           return(list(simulated_data = simulated_data))
         }
@@ -829,7 +890,7 @@ phenotypes <-
               simulated_cor[[z]] <- sigma
               simulated_data[[z]][, 2:(ntraits + 1)] <-
                 mvtnorm::rmvnorm(n = n,
-                                 mean = rep(0, ntraits),
+                                 mean = mean,
                                  sigma = sigma)
             }
             H2 <- matrix(0, 1, ntraits)
@@ -842,7 +903,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -860,7 +923,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -884,7 +949,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".fam"
                   ),
                   row.names = FALSE,
@@ -906,7 +973,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -915,24 +984,29 @@ phenotypes <-
                 na = NA
               )
             }
+            if (verbose){
             write.table(
               ss,
               ifelse(
                 output_format == "multi-file",
                 paste0(
-                  "../seed_number_for_",
+                  "../Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 paste0(
-                  "seed_number_for_",
+                  "Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 )
               ),
@@ -941,6 +1015,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
           } else {
             colnames <- c("<Trait>",
                           paste0("Trait_", 1:ntraits, "_H2_", h2[i, ]),
@@ -969,6 +1044,8 @@ phenotypes <-
                 base_line_trait[[z]]$base_line + mvtnorm::rmvnorm(n = n,
                                                                   mean = rep(0, ntraits),
                                                                   sigma = sigma)
+              simulated_data[[z]][, 2:(ntraits + 1)] <- 
+                apply(t(1:ntraits), 2, function(x) {simulated_data[[z]][, 2:(ntraits + 1)][, x] + mean[x]})
               if (any(vg == 0)) {
                 warning(
                   "Genetic variance = 0 for at least one trait in rep ",
@@ -985,6 +1062,11 @@ phenotypes <-
               }
             }
             if (QTN_variance) {
+              if (!is.null(cor)) {warning(
+                "Please notice that when \'cor\' is provided, the PVE is only accurate for trait 1 since the Cholesky transformation changes the allelic effects of all other traits to ensure the desired correlation.",
+                call. = F,
+                immediate. = T
+              )}
               if (add) {
                 for (u in 1:ntraits) {
                   lqtna <- length(base_line_trait[[1]]$QTN_var$var_add[[u]])
@@ -1000,7 +1082,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           add_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_ADD_QTNs_trait_", u, ".txt"),
+                    paste0("PVE_of_ADD_QTNs_trait_", u, ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -1027,7 +1109,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           dom_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_DOM_QTNs_trait_", u, ".txt"),
+                    paste0("PVE_of_DOM_QTNs_trait_", u, ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -1054,7 +1136,7 @@ phenotypes <-
                   data.table::fwrite(
                     cbind(REP = 1:rep,
                           epi_var_per_QTN_temp),
-                    paste0("Percent_variation_explained_by_EPI_QTNs_trait_", u, ".txt"),
+                    paste0("PVE_of_EPI_QTNs_trait_", u, ".txt"),
                     row.names = FALSE,
                     sep = "\t",
                     quote = FALSE,
@@ -1073,7 +1155,9 @@ phenotypes <-
                     "_Rep_",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -1091,7 +1175,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1115,7 +1201,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".fam"
                   ),
                   row.names = FALSE,
@@ -1137,7 +1225,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1146,24 +1236,29 @@ phenotypes <-
                 na = NA
               )
             }
+            if (verbose){
             write.table(
               ss,
               ifelse(
                 output_format == "multi-file",
                 paste0(
-                  "../seed_number_for_",
+                  "../Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 paste0(
-                  "seed_number_for_",
+                  "Seed_number_for_",
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 )
               ),
@@ -1172,17 +1267,16 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
           }
         }
         colnames(H2) <- paste0("Trait_", 1:ntraits)
-        if (verbose) {
-            cat("\nPopulation Heritability:\n")
-            print(h2)
-          cat("\nSample heritability (Average of",
-              rep - h,
-              " replications): \n")
-          print(H2)
-        }
+        cat("\nPopulation Heritability:\n")
+        print(h2)
+        cat("\nSample heritability (Average of",
+            rep - h,
+            " replications): \n")
+        print(H2)
         if (all(H2 != 1)) {
           sample_cor <- matrix(0, ntraits, ntraits)
           for (v in 1:rep) {
@@ -1200,7 +1294,7 @@ phenotypes <-
           return(list(sample_cor = sample_cor))
         }
       } else {
-        H2 <- matrix(NA, nrow = rep, ncol = ncol(h2))
+        H2 <- matrix(NA, nrow = rep, ncol = length(h2))
         for (i in seq_len(nrow(h2))) {
           ss <- c()
           if (any(h2[i, ] == 0)) {
@@ -1222,18 +1316,21 @@ phenotypes <-
               }
               simulated_data[, j + 1] <-
                 rnorm(n,
-                      mean = 0,
+                      mean = mean,
                       sd = 1)
             }
-            H2 <- matrix(0, nrow = 1, ncol = ncol(h2))
+            H2 <- matrix(0, nrow = 1, ncol = length(h2))
+            if (verbose){
             write.table(
               ss,
               paste0(
-                "seed_number_for_",
+                "Seed_number_for_",
                 rep,
                 "_Reps",
                 "_Herit_",
-                paste(h2[i, ], collapse = "_"),
+                ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                       paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                       paste(h2[i,], collapse = "_")),
                 ".txt"
               ),
               row.names = FALSE,
@@ -1241,6 +1338,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
             if (output_format == "multi-file") {
               invisible(apply(as.matrix(1:rep), 1, function(x) {
                 data.table::fwrite(
@@ -1250,7 +1348,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -1277,7 +1377,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1300,7 +1402,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".fam"
                 ),
                 row.names = FALSE,
@@ -1317,7 +1421,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1352,7 +1458,7 @@ phenotypes <-
                       mean = 0,
                       sd = sqrt(residual.variance))
               simulated_data[, j + 1] <-
-                base_line_trait[[j]]$base_line + normal_random_variables
+                base_line_trait[[j]]$base_line + normal_random_variables + mean
               if (vg == 0) {
                 warning(
                   "Genetic variance = 0 in rep ",
@@ -1368,6 +1474,11 @@ phenotypes <-
               }
             }
             if (QTN_variance) {
+              if (!is.null(cor)) {warning(
+                "Please notice that when \'cor\' is provided, the PVE is only accurate for trait 1 since the Cholesky transformation changes the allelic effects of all other traits to ensure the desired correlation.",
+                call. = F,
+                immediate. = T
+              )}
               if (add) {
                 lqtna <- length(base_line_trait[[1]]$var_add)
                 add_var_per_QTN <-
@@ -1382,7 +1493,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         add_var_per_QTN),
-                  "Percent_variation_explained_by_ADD_QTNs_trait_1.txt",
+                  "PVE_of_ADD_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -1407,7 +1518,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         dom_var_per_QTN),
-                  "Percent_variation_explained_by_DOM_QTNs_trait_1.txt",
+                  "PVE_of_DOM_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -1432,7 +1543,7 @@ phenotypes <-
                 data.table::fwrite(
                   cbind(REP = 1:rep,
                         epi_var_per_QTN),
-                  "Percent_variation_explained_by_EPI_QTNs_trait_1.txt",
+                  "PVE_of_EPI_QTNs_trait_1.txt",
                   row.names = FALSE,
                   sep = "\t",
                   quote = FALSE,
@@ -1440,14 +1551,17 @@ phenotypes <-
                 )
               }
             }
+            if (verbose){
             write.table(
               ss,
               paste0(
-                "seed_number_for_",
+                "Seed_number_for_",
                 rep,
                 "_Reps",
                 "_Herit_",
-                paste(h2[i, ], collapse = "_"),
+                ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                       paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                       paste(h2[i,], collapse = "_")),
                 ".txt"
               ),
               row.names = FALSE,
@@ -1455,6 +1569,7 @@ phenotypes <-
               sep = "\t",
               quote = FALSE
             )
+            }
             if (output_format == "multi-file") {
               invisible(apply(as.matrix(1:rep), 1, function(x) {
                 data.table::fwrite(
@@ -1464,7 +1579,9 @@ phenotypes <-
                     "_Rep",
                     x,
                     "_Herit_",
-                    paste(h2[i, ], collapse = "_"),
+                    ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                           paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                           paste(h2[i,], collapse = "_")),
                     ".txt"
                   ),
                   row.names = FALSE,
@@ -1491,7 +1608,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1514,7 +1633,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".fam"
                 ),
                 row.names = FALSE,
@@ -1531,7 +1652,9 @@ phenotypes <-
                   rep,
                   "_Reps",
                   "_Herit_",
-                  paste(h2[i, ], collapse = "_"),
+                  ifelse(nchar(paste(h2[i,], collapse = "_")) > 100,
+                         paste0(h2[i, 1], "...", h2[i, ntraits]) ,
+                         paste(h2[i,], collapse = "_")),
                   ".txt"
                 ),
                 row.names = FALSE,
@@ -1543,13 +1666,11 @@ phenotypes <-
           }
         }
         H2 <- apply(H2, 2, mean, na.rm = T)
-        if (verbose) {
-          cat("\nPopulation Heritability:", h2)
-          cat("\nSample heritability (Average of",
-              rep - h,
-              " replications): \n")
-          print(H2)
-        }
+        cat("\nPopulation Heritability:", h2)
+        cat("\nSample heritability (Average of",
+            rep - h,
+            " replications): \n")
+        print(H2)
         if (to_r) {
           return(list(simulated_data = simulated_data))
         }

@@ -9,15 +9,19 @@ create_phenotypes(
   geno_obj = NULL,
   geno_file = NULL,
   geno_path = NULL,
+  QTN_list = list(add = list(NULL), dom = list(NULL), epi = list(NULL)),
   prefix = NULL,
   rep = NULL,
   ntraits = 1,
   h2 = NULL,
+  mean = NULL,
   model = NULL,
   architecture = "pleiotropic",
   add_QTN_num = NULL,
   dom_QTN_num = NULL,
   epi_QTN_num = NULL,
+  epi_type = NULL,
+  epi_interaction = 2,
   pleio_a = NULL,
   pleio_d = NULL,
   pleio_e = NULL,
@@ -31,7 +35,9 @@ create_phenotypes(
   degree_of_dom = 1,
   epi_effect = NULL,
   type_of_ld = "indirect",
-  ld = 0.5,
+  ld_min = 0.2,
+  ld_max = 0.8,
+  ld_method = "composite",
   sim_method = "geometric",
   vary_QTN = FALSE,
   cor = NULL,
@@ -44,6 +50,7 @@ create_phenotypes(
   output_format = "long",
   to_r = FALSE,
   out_geno = NULL,
+  chr_prefix = "chr",
   remove_QTN = FALSE,
   warning_file_saver = TRUE,
   constraints = list(maf_above = NULL, maf_below = NULL, hets = NULL),
@@ -53,7 +60,8 @@ create_phenotypes(
   SNP_effect = "Add",
   SNP_impute = "Middle",
   quiet = FALSE,
-  verbose = TRUE
+  verbose = TRUE,
+  RNGversion = "3.5.1"
 )
 }
 \arguments{
@@ -73,6 +81,8 @@ files, the dosage information will be converted to the opposite value.}
 \item{geno_path}{Path to a folder containing the marker data set
 file/files (e.g., separated by chromosome). Formats accepted are:
 Numeric, HapMap, VCF, GDS, and Plink Bed/Ped files}
+
+\item{QTN_list}{A list of specific markers to be used as QTNs. If one wants to specify the QTNs instead of selecting them randomly, at least one of the following elements should be provided: `QTN_list$add`, `QTN_list$dom`, and/or `QTN_list$epi`. The element `$add`, `$dom`, and `$epi` are lists containing a vector of markers for each of the traits to be simulated. For example, to simulate 2 traits controlled by 1 pleiotropic and 2 trait-specific additive QTNs, the user would create a list of marker names `marker_list <- list(add = list(trait1 = c("marker1", "marker2", "marker3"), trait2 = c("marker1", "marker4", "marker5")))` and set `QTN_list = marker_list`. On the other hand, to simulate a single trait controlled by 1 additive and 2 dominance QTNs, the marker list would be `marker_list <- list(add = list("marker1"), dom = list(c("marker2", "marker3")))`. Notice that these vectors with maker names is used in the order they appear. For instance, in the list `marker_list <- list(add = list(trait9 = c("marker1"), trait4 = c("marker5")))`, the vector names itself ("trait9" and "trait4") are ignored and "trait9" will be the vector of markers used to simulate the first trait and "trait4" will be the vector of markers used to simulate the second trait. Also, when using `QTN_list`, many parameters used for selecting QTNs will be ignored (e.g., `constraints`).}
 
 \item{prefix}{If `geno_path` points to a folder with files other than the
 marker data set, a part of the data set name may be used to select the desired
@@ -96,6 +106,8 @@ If a single trait is being simulated and h2 is a vector,
 one simulation of each heritability value will be conducted. Either none or
 all traits are expected to have `h2 = 0`.}
 
+\item{mean}{A vector with the mean (intercept) value for each of the simulated traits. If omitted, the simulated traits will be centered to zero.}
+
 \item{model}{The genetic model to be assumed. The options are
 "A" (additive), "D" (dominance), "E" (epistatic)
 as well as any combination of those models such as "AE", "DE" or "ADE".}
@@ -104,8 +116,8 @@ as well as any combination of those models such as "AE", "DE" or "ADE".}
 if `ntraits` > 1. Possible options are: 'pleiotropic' (default), for traits being
 controlled by the same QTNs; 'partially', for traits being controlled by
 pleiotropic and trait-specific QTNs; 'LD', for traits being exclusively
-controlled by different QTNs in "direct" or "indirect" (See `type_of_ld` and
-`ld` below) linkage disequilibrium. Currently the
+controlled by different QTNs in "direct" or "indirect" (See `type_of_ld`, `ld_min`, and
+`ld_max` below) linkage disequilibrium. Currently the
 only option for `architecture = "LD"` is `ntraits = 2`.}
 
 \item{add_QTN_num}{The number of additive quantitative trait nucleotides
@@ -115,6 +127,12 @@ only option for `architecture = "LD"` is `ntraits = 2`.}
 
 \item{epi_QTN_num}{The number of epistatic (Currently, only additive x
 additive epistasis are simulated) QTNs to be simulated.}
+
+\item{epi_type}{to be implemented...}
+
+\item{epi_interaction}{Number of markers that compose an epistatic QTN. 
+If `epi_interaction = 2` (default), a 2-way interaction (marker1 x marker2) will be 
+used to simulate epistatic QTNs. If `epi_interaction = 3` a 3-way interaction (marker1 x marker2 x marker3) will be used instead.}
 
 \item{pleio_a}{The number of pleiotropic additive QTNs to be
 used if `architecture = "partially"`. When `sim_method = custom` (see below),
@@ -180,9 +198,15 @@ in the "direct" method, one marker is selected to be a QTN for trait 1, and
 a second marker is selected based on its LD with the first selected marker to
 be the QTN for trait 2.}
 
-\item{ld}{Linkage disequilibrium threshold for selecting QTNs when
-`architecture = LD`. The default is `ld = 0.5` (markers should have an LD of
-at maximum 0.5 to be used as QTNs).}
+\item{ld_min}{Minimum Linkage disequilibrium for selecting QTNs when
+`architecture = LD`. The default is `ld_min = 0.2` (markers should have a minimum LD of
+0.2 to be used as QTNs).}
+
+\item{ld_max}{Maximum Linkage disequilibrium for selecting QTNs when
+`architecture = LD`. The default is `ld_max = 0.8` (markers should have an LD of
+at maximum 0.8 to be used as QTNs).}
+
+\item{ld_method}{Four methods can be used to calculate linkage disequilibrium values: "composite" for LD composite measure (Default), "r" for R coefficient (by EM algorithm assuming HWE, it could be negative), "dprime" for D', and "corr" for correlation coefficient (see snpgdsLDpair from package SNPRelate).}
 
 \item{sim_method}{Provide the method of simulating allelic effects.
 The options available are "geometric" and "custom". For multiple QTNs,
@@ -221,8 +245,7 @@ a different seed generated based on the `seed` parameter used.
 For example, if one uses `seed = 123`, when simulating the 10th replication
 of trait 1, the seed to be used is `round( (123 * 10 * 10) * 1)`. On the
 other hand, for simulating the 21st replication of trait 2, the seed to be
-used will be `round( (123 * 21 * 21) * 2)`.The actual seed used in every
-simulation is exported along with simulated phenotypes.}
+used will be `round( (123 * 21 * 21) * 2)`. The master seed (unique value required to reproduce  results) is saved at the top of the log file. Unless verbose = FALSE the actual seed used in every  simulation is exported along with simulated phenotypes.}
 
 \item{home_dir}{Directory where files should be saved. It may be
 home_dir = getwd().}
@@ -246,7 +269,11 @@ addition to saving it to file. If TRUE, results need to be assigned to an
 R object (see vignette).}
 
 \item{out_geno}{Optionally saves the numericalized genotype either as "numeric" (see
-vignettes for an example data), "plink" or "gds". The default is NULL.}
+vignettes for an example data), "BED" or "gds". The default is NULL.}
+
+\item{chr_prefix}{If input file format is VCF and out_geno = "BED", and a prefix
+is used in the chromosomes names, chr_prefix may be used to avoid issues in
+converting to bed files (e.g., chr_prefix = "chr" in "chr01").}
 
 \item{remove_QTN}{Whether or not a copy of the genotypic file should be saved
 without the simulated QTNs. The default is FALSE. If `vary_QTN = TRUE`, the
@@ -282,7 +309,7 @@ HapMap.}
 
 \item{SNP_effect}{Parameter used for numericalization. The options are: Add
 (AA = 1, Aa = 0, aa = -1),  Dom (AA = -1, Aa = 0, aa = -1), Left (AA = 1,
-Aa = -1, aa = -1), Rigth (AA = 1, Aa = 1, aa = -1). The default option is Add.}
+Aa = -1, aa = -1), Right (AA = 1, Aa = 1, aa = -1). The default option is Add.}
 
 \item{SNP_impute}{Naive imputation for HapMap numericalization. The options
 are: Major (NA <- 1), Middle (NA <- 0), and Minor (NA <- -1).}
@@ -290,7 +317,9 @@ are: Major (NA <- 1), Middle (NA <- 0), and Minor (NA <- -1).}
 \item{quiet}{Whether or not the log file should pop up into R once the
 simulation is done.}
 
-\item{verbose}{If FALSE, suppress all prints.}
+\item{verbose}{If FALSE, suppress all prints and suppress individual seed numbers from being saved to file. The master seed (unique value required to reproduce results) is saved at the top of the log file.}
+
+\item{RNGversion}{Parameter to set the random number generator. Different R versions may be selected, the default value is `3.5.1`.}
 }
 \value{
 Single or multi-trait phenotypes in one of many formats.
@@ -304,7 +333,7 @@ architectures.
 }
 \examples{
 # Simulate 50 replications of a single phenotype.
-\dontrun{
+data("SNP55K_maize282_maf04")
 pheno <- 
   create_phenotypes(
     geno_obj = SNP55K_maize282_maf04,
@@ -315,19 +344,19 @@ pheno <-
     h2 = 0.7,
     model = "A",
     to_r = TRUE,
-    home_dir = tempdir()
+    home_dir = tempdir(),
+    quiet = T
     )
-}
 # For more examples, please run the following:
 # vignette("simplePHENOTYPES")
 
 }
 \references{
-Fernandes, S.B and Lipka, A.E (2020). simplePHENOTYPES:
-SIMulation of Pleiotropic, Linked and Epistatic PHENOTYPES. bioRxiv,
-\doi{https://doi.org/10.1101/2020.01.11.902874} \cr
+Fernandes, S.B., and Lipka, A.E., 2020 simplePHENOTYPES: SIMulation of pleiotropic, linked and epistatic
+SIMulation of Pleiotropic, Linked and Epistatic PHENOTYPES. BMC Bioinformatics 21(1):491,
+\doi{https://doi.org/10.1186/s12859-020-03804-y} \cr
 }
 \author{
 Samuel B Fernandes and Alexander E Lipka
-Last update: Apr 29, 2020
+Last update: Jan 19, 2021
 }

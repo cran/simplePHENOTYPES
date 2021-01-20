@@ -1,3 +1,65 @@
+# simplePHENOTYPES 1.3.0
+## Major changes
+Implemented the parameter "ld_max" (replacing "ld") and "ld_min".
+## Minor changes
+Fixed bug that changed the working directory after the simulation
+
+# simplePHENOTYPES 1.2.16
+## Major changes
+Included the parameter 'mean', so traits can be simulated with the desired mean (intercept) value.
+Included QTN_list option for the LD architecture. 
+set default seed generator as RNGversion('3.5.1') to ensure reproducibility.
+## Minor changes
+Renamed some output QTN info files to make it standard across different architectures
+
+# simplePHENOTYPES 1.2.15
+## Major changes
+Included the parameter QTN_list = list(add = NULL, dom = NULL, epi = NULL) to give the user the possibility to select the specific markers to be used as QTNs.
+## Minor changes
+Included 'Master Seed' in the log file to facilitate reproducibility. Now it only saves individual seed numbers when verbose = TRUE (default).
+
+# simplePHENOTYPES 1.2.14
+## Minor changes
+check if 'out_geno' is either 'numeric', 'plink' or 'gds'
+replaced the dependence lqmm and uses the function make_pd() to make cor matrix positive definite
+
+# simplePHENOTYPES 1.2.13
+## Minor changes
+Fixed bug when reading multiple files using geno_path
+
+# simplePHENOTYPES 1.2.12
+## Minor changes
+Fix bug that stopped simplePHENOTYPES when using geno_obj and architecture = "LD"
+
+# simplePHENOTYPES 1.2.11
+## Minor changes
+Fix bug in the simulation of single trait using multiple h2 values 
+
+# simplePHENOTYPES 1.2.10
+## Minor changes
+Fix bug that made the direct LD option stop running
+
+
+# simplePHENOTYPES 1.2.9
+## Minor changes
+Fixed bug that also removed the cause of LD when remove_QTN = TRUE with architecture = "LD"
+Fixed bug when reading multiple files using geno_path
+
+# simplePHENOTYPES 1.2.8
+## Minor changes
+Set all additive parameters to NULL when model is dominance or epistasis.
+
+# simplePHENOTYPES 1.2.7
+## Minor changes
+Fixed bug when more than 9 traits were simulated under the "partially" architecture
+Fixed bug when saving file name with very large name due to a large number of traits
+
+# simplePHENOTYPES 1.2.6
+## Minor changes
+Fixed bug in the QTN MAF calculation on the LD architecture
+Fixed bug when importing VCF and exporting BED files (implemented by chr_prefix)
+
+
 # simplePHENOTYPES 1.2.4
 ## Major changes
 **Input**

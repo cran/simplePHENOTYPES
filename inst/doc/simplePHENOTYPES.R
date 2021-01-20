@@ -91,6 +91,7 @@ knitr::opts_chunk$set(
 #    h2 = c(0.2, 0.4, 0.8),
 #    add_effect = c(0.5, 0.33, 0.2),
 #    epi_effect = c(0.3, 0.3, 0.3),
+#    epi_interaction = 2,
 #    cor = cor_matrix,
 #    rep = 20,
 #    output_dir = "Results_Partially",
@@ -113,10 +114,12 @@ knitr::opts_chunk$set(
 #    output_format = "wide",
 #    architecture = "LD",
 #    output_dir = "Results_LD",
-#    out_geno = "plink",
+#    out_geno = "BED",
 #    remove_QTN = TRUE,
-#    ld=0.8,
+#    ld_max =0.8,
+#    ld_min =0.2,
 #    model = "A",
+#    ld_method = "composite",
 #    type_of_ld = "indirect",
 #    home_dir = tempdir()
 #  )
@@ -155,6 +158,32 @@ knitr::opts_chunk$set(
 #    ),
 #    cor_res = residual
 #  )
+
+## ----qtn_list, results = "hide", eval = FALSE---------------------------------
+#  QTN_list <- list()
+#  QTN_list$add[[1]] <- c("ss196523212")
+#  QTN_list$dom[[1]] <- c("ss196510214", "ss196472187")
+#  QTN_list$epi[[1]] <- c("ss196530605", "ss196475446")
+#  create_phenotypes(
+#    geno_obj = SNP55K_maize282_maf04,
+#    add_QTN_num = 1,
+#    dom_QTN_num = 2,
+#    epi_QTN_num = 1,
+#    epi_interaction = 2,
+#    h2 = c(0.92, 0.4) ,
+#    add_effect = c(0.90, 0.2),
+#    dom_effect = c(0.01, 0.3),
+#    epi_effect = c(-0.3, 0.7),
+#    ntraits = 2,
+#    QTN_list = QTN_list,
+#    rep = 1,
+#    output_format = "gemma",
+#    out_geno = "BED",
+#    output_dir = "output_data",
+#    model = "ADE",
+#    home_dir = getwd()
+#  )
+#  
 
 ## ----example, results = "hide", eval = FALSE----------------------------------
 #  create_phenotypes(
