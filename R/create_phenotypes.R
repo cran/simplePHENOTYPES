@@ -1175,7 +1175,7 @@ create_phenotypes <-
             verbose = F,
             snpfirstdim = F
           ), silent = TRUE)
-          if (class(try_bed) == "try-error") {
+          if (inherits(try_bed, "try-error")) {
             stop(
               "Conversion to Bed files failed, probably because of chromosome names. Try using \'chr_prefix\' to remove the prefix and have names as numbers.",
               call. = F
@@ -1456,7 +1456,7 @@ create_phenotypes <-
             if (rep_by == "QTN" |
                 architecture == "partially" |
                 architecture == "LD") {
-              if (class(QTN$add_ef_trait_obj[[1]]) == "matrix") {
+              if (inherits(QTN$add_ef_trait_obj[[1]], "matrix")) {
                 hets <- lapply(QTN$add_ef_trait_obj,
                                function(x) {
                                  f <- apply(x, 2, function(b) {
@@ -1491,7 +1491,7 @@ create_phenotypes <-
             if (rep_by == "QTN" |
                 architecture == "partially" |
                 architecture == "LD") {
-              if (class(QTN$dom_ef_trait_obj[[1]]) == "matrix") {
+              if (inherits(QTN$dom_ef_trait_obj[[1]], "matrix")) {
                 hets <- lapply(QTN$dom_ef_trait_obj,
                                function(x) {
                                  f <- apply(x, 2, function(b) {

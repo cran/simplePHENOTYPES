@@ -1,3 +1,9 @@
+# simplePHENOTYPES 1.3.1
+## Minor changes
+Updated the maintainer e-mail address.
+Replaced `class(x) == "matrix"` / `"try-error"` comparisons with `inherits()`, which also avoids a length-2 condition error under R >= 4.2.
+Use an absolute URL for the README logo.
+
 # simplePHENOTYPES 1.3.0
 ## Major changes
 Implemented the parameter "ld_max" (replacing "ld") and "ld_min".

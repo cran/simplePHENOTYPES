@@ -25,7 +25,7 @@ numericalization <-
       # heterozygose has the largest value
       x[x == "R" |
           x == "Y" | x == "S" | x == "W" | x == "K" | x == "M"] <- "Z"
-      if (class(x) != "matrix") {
+      if (!inherits(x, "matrix")) {
         x <- as.matrix(x)
       }
       # Genotype counts

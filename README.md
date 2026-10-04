@@ -11,7 +11,9 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.or
 [![Downloads](https://cranlogs.r-pkg.org/badges/grand-total/simplePHENOTYPES?color=blue)](https://cran.r-project.org/package=simplePHENOTYPES)
 [![Downloads](https://cranlogs.r-pkg.org/badges/simplePHENOTYPES?color=blue)](https://cran.r-project.org/package=simplePHENOTYPES)
 
-
+<p align="center">
+<a href="https://raw.githubusercontent.com/samuelbfernandes/simplePHENOTYPES/master/man/figures/SP_logo.png"> <img src="https://raw.githubusercontent.com/samuelbfernandes/simplePHENOTYPES/master/man/figures/SP_logo.png"> </a>
+</p>
 <!-- badges: end -->
 
 ### Contents
@@ -427,6 +429,6 @@ for questions and discussions:
 
 Author: Samuel B Fernandes and Alexander E Lipka
 
-Contact: <samuelf@illinois.edu> or <fernandessb101@gmail.com>
+Contact: <samuelbf@uark.edu> or <fernandessb101@gmail.com>
 
 Institution: University of Illinois at Urbana-Champaign

@@ -1,11 +1,10 @@
-citHeader("To cite simplePHENOTYPES in publications use:")
-
-citEntry(
-    entry = "Article",
+bibentry(
+    bibtype = "Article",
+    header = "To cite simplePHENOTYPES in publications use:",
     title = "simplePHENOTYPES: SIMulation of pleiotropic, linked and epistatic phenotypes",
     author = c(
         person("Samuel B", "Fernandes"),
-        person("Alexander E", "de los Campos")
+        person("Alexander E", "Lipka")
     ),
     journal = "BMC Bioinformatics",
     year = "2020",
